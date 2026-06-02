@@ -6,7 +6,6 @@ dist
 
 /src/generated
 .vscode/settings.json
-resource/*
 
 GEMINI.md
 .claude

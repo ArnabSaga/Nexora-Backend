@@ -1,0 +1,55 @@
+model Hashtag {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  postCount Int           @default(0)
+  posts     PostHashtag[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([name])
+  @@index([postCount])
+  @@map("hashtag")
+}
+
+model PostHashtag {
+  id        String   @id @default(cuid())
+  postId    String
+  hashtagId String
+  createdAt DateTime @default(now())
+
+  post    Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hashtag Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, hashtagId])
+  @@index([postId])
+  @@index([hashtagId])
+  @@map("post_hashtag")
+}
+
+model PostMention {
+  id              String   @id @default(cuid())
+  mentionedUserId String
+  postId          String
+  createdAt       DateTime @default(now())
+
+  mentionedUser User @relation("PostMentionedUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
+  post          Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([mentionedUserId])
+  @@index([postId])
+  @@map("post_mention")
+}
+
+model CommentMention {
+  id              String   @id @default(cuid())
+  mentionedUserId String
+  commentId       String
+  createdAt       DateTime @default(now())
+
+  mentionedUser User    @relation("CommentMentionedUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
+  comment       Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([mentionedUserId])
+  @@index([commentId])
+  @@map("comment_mention")
+}

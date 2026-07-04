@@ -13,14 +13,14 @@ Update this file after every development session. This is the single source of t
 | Project | Nexora |
 | Product Type | Social-professional community platform |
 | Current Phase | Phase 1 — Foundation |
-| Current Focus | Harden MVP Prisma schema after production review |
+| Current Focus | Align shared backend helpers with Nexora PRD contracts |
 | Overall MVP Status | Not Started |
 | Frontend Status | Not Started |
 | Backend Status | In Progress |
 | Database Status | MVP schema implemented and Prisma-validated |
 | API Status | Route contract draft ready |
 | UI System Status | Tokens/rules/registry drafted |
-| Last Updated | 2026-07-04 |
+| Last Updated | 2026-07-05 |
 
 ---
 
@@ -28,11 +28,11 @@ Update this file after every development session. This is the single source of t
 
 | Item | Details |
 |---|---|
-| Task | Resolve production review issues in MVP Prisma schema |
+| Task | Review and improve `src/app/shared` helpers, constants, response types, and error utilities |
 | Owner | Developer |
-| Status | Review |
-| Expected Output | Safer domain schema with target-specific engagement, mention, and report models |
-| Acceptance Criteria | Prisma format, validate, and generate pass after production-risk fixes |
+| Status | Implemented |
+| Expected Output | Shared utilities use Nexora roles/statuses, upload policy, response shape, and safer query defaults |
+| Acceptance Criteria | TypeScript and Prisma validation pass |
 
 ---
 
@@ -40,11 +40,11 @@ Update this file after every development session. This is the single source of t
 
 | Priority | Task | Type | Dependency |
 |---|---|---|---|
-| 1 | Create final PRD.md from improved context | Documentation | Context files |
-| 2 | Create final Prisma schema from ERD | Backend | Database decision |
-| 3 | Setup backend app | Backend | Repo setup |
-| 4 | Setup frontend app | Frontend | Repo setup |
-| 5 | Build auth UI and auth API | Full-stack | Backend/frontend setup |
+| 1 | Build auth route/controller integration around Better Auth session contract | Backend | Auth foundation |
+| 2 | Build profile API and avatar/cover upload routes | Backend | Upload helpers |
+| 3 | Build post media upload and post create/feed routes | Backend | Upload helpers |
+| 4 | Add admin user moderation endpoints | Backend | `requireAuth` + `validateRole` |
+| 5 | Setup frontend app | Frontend | Backend route contracts |
 
 ---
 
@@ -52,10 +52,8 @@ Update this file after every development session. This is the single source of t
 
 | Blocker | Impact | Resolution Plan | Status |
 |---|---|---|---|
-| Final auth strategy not selected | Affects backend auth implementation | Decide between JWT and Better Auth before coding auth module | Open |
 | Repository structure not finalized | Affects setup commands and imports | Choose monorepo or separate frontend/backend repos | Open |
 | UI mock/reference images not added yet | Affects exact visual styling | Add design reference images later under `context/designs/` | Open |
-| Storage provider not confirmed | Affects upload module | Use Cloudinary by default unless changed | Open |
 
 ---
 
@@ -81,8 +79,8 @@ Update this file after every development session. This is the single source of t
 
 | Priority | Module | Status | Current Task | Next Task | Blocker |
 |---|---|---|---|---|---|
-| 1 | Foundation | In Progress | Prisma schema validated | Add shared helpers | None |
-| 2 | Auth | In Progress | Better Auth schema aligned with PRD | Build register/login | None |
+| 1 | Foundation | In Progress | Middleware, error helpers, and app wiring compile | Add route registry | None |
+| 2 | Auth | In Progress | Better Auth schema and `requireAuth` middleware aligned with PRD | Build protected auth/user routes | None |
 | 3 | User | In Progress | User role/status schema ready | Build list/update role/status | Auth required |
 | 4 | Profile | In Progress | Profile schema ready | Build profile CRUD | Auth required |
 | 5 | Experience | In Progress | Experience schema ready | Build CRUD | Profile required |
@@ -101,7 +99,7 @@ Update this file after every development session. This is the single source of t
 | 18 | Report | In Progress | Report schema ready | Build report endpoints | Content/community required |
 | 19 | Search | In Progress | Search entities ready for PostgreSQL basic search | Build basic search | Data required |
 | 20 | Hashtag | In Progress | Hashtag schema ready | Build trending/tags | Post required |
-| 21 | Upload | Not Started | Confirm Cloudinary config | Build upload endpoints | Storage decision |
+| 21 | Upload | In Progress | Cloudinary storage helpers and MIME policies ready | Build upload endpoints | None |
 | 22 | Admin | Not Started | Confirm dashboard metrics | Build admin dashboard API | Most modules required |
 
 ### Frontend Pages
@@ -160,6 +158,8 @@ Before marking any feature as Done, verify:
 | Redis and Socket.IO later | Proposed | Not required for MVP |
 | Better Auth is auth provider | Final | Existing code uses Better Auth Prisma adapter |
 | Prisma IDs use cuid | Final | Use `String @id @default(cuid())` consistently |
+| API error shape uses `errorMessages` | Final | Matches PRD standard response contract |
+| Cloudinary upload folders use Nexora names | Final | Old task/profile env names remain temporary fallbacks only |
 
 ---
 
@@ -167,9 +167,7 @@ Before marking any feature as Done, verify:
 
 | Decision | Options | Recommendation | Needed Before |
 |---|---|---|---|
-| Auth strategy | JWT / Better Auth | JWT for learning and backend control, Better Auth for faster auth | Auth module |
 | Repo structure | Monorepo / Separate repos | Monorepo if comfortable, separate repos if simpler | Setup |
-| File upload | Cloudinary / S3 | Cloudinary for MVP | Upload module |
 | Feed pagination | Offset / Cursor | Offset for MVP, cursor later | Feed module |
 | Search | PostgreSQL basic / Meilisearch | PostgreSQL basic first | Search module |
 
@@ -194,12 +192,41 @@ Add notes here after each session.
 - Split mentions and reports into target-specific models to protect data integrity and moderation history.
 - Added Better Auth account uniqueness on provider/account identity and changed key audit/content relations to restrict hard deletes.
 
+### Session 3
+
+- Updated `src/app/lib/auth.ts` to use env-backed Better Auth secret/base URL/trusted origins.
+- Enabled email/password auth and exposed Nexora `role`, `status`, and `lastLoginAt` fields through Better Auth additional fields.
+- Added hooks to normalize email, create the initial `Profile` row after user creation, block suspended/deleted users before session creation, and update `lastLoginAt` after login.
+
+### Session 4
+
+- Added PRD-aligned global error handling with `errorMessages`, sanitized Prisma/Zod helpers, and Cloudinary cleanup on failed upload requests.
+- Added Nexora Cloudinary folders for post media, profile avatars, and profile covers, with temporary fallback support for old task/profile folder env names.
+- Added `requireAuth` as the Better Auth session bridge and updated `validateRole` to use Nexora roles only.
+- Mounted Better Auth, not-found middleware, and global error handling in the Express app.
+
+### Session 5
+
+- Split Prisma error handling into focused files for known request, validation, unknown, initialization, rust panic, and shared utility logic.
+- Restored the PRD error response contract in uploaded Prisma/Zod helpers by returning `errorMessages` instead of `errorSources`.
+- Added a shared `TErrorResponse` type for reusable error formatter outputs.
+- Fixed Cloudinary folder env handling so new Nexora folder variables are optional with temporary old-name fallbacks.
+
+### Session 6
+
+- Reviewed all files under `src/app/shared` for Nexora PRD fit.
+- Updated shared role/status constants to match `USER`, `MODERATOR`, `ADMIN`, `SUPER_ADMIN` and `ACTIVE`, `SUSPENDED`, `DELETED`.
+- Added shared response types and fixed `sendResponse` to include `statusCode` in success payloads.
+- Aligned shared upload constants with MVP media support and reused them from Cloudinary config.
+- Hardened `QueryBuilder` so filtering and field selection require explicit allowlists.
+- Improved `slugify` for safer profile/community slugs.
+
 ---
 
 ## Next Session Plan
 
-1. Decide auth strategy
-2. Decide repository structure
-3. Generate Prisma schema from ERD
-4. Generate backend foundation files
-5. Start Auth module
+1. Build protected auth/user route contracts
+2. Build profile CRUD and avatar/cover upload routes
+3. Build post media upload routes
+4. Add route registry under `/api/v1`
+5. Start admin moderation endpoints

@@ -4,6 +4,7 @@ import { createAuthMiddleware } from 'better-auth/api';
 
 import { envVars } from '../config/env';
 import { prisma } from './prisma';
+import { sendEmail } from '../shared/helpers/emailTemplate';
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
@@ -24,12 +25,54 @@ const createProfileUsername = (user: { id: string; email: string; name: string }
   return `${normalizeUsernameSeed(emailSeed)}_${suffix}`;
 };
 
+const sendSecurityEmail = async (options: {
+  email: string;
+  name?: string | null;
+  subject: string;
+  title: string;
+  message: string;
+  actionUrl?: string;
+  actionLabel?: string;
+  code?: string;
+  expiryMinutes?: number;
+}) => {
+  await sendEmail({
+    to: options.email,
+    subject: options.subject,
+    templateName: 'otp',
+    templateData: {
+      name: options.name?.trim() || 'there',
+      title: options.title,
+      message: options.message,
+      actionUrl: options.actionUrl,
+      actionLabel: options.actionLabel,
+      code: options.code,
+      expiryMinutes: options.expiryMinutes ?? 10,
+      appName: 'Nexora',
+    },
+    text:
+      `${options.title}\n\n${options.message}` +
+      (options.actionUrl ? `\n\n${options.actionLabel || 'Continue'}: ${options.actionUrl}` : '') +
+      (options.code ? `\n\nCode: ${options.code}` : '') +
+      `\n\nThis request expires in ${options.expiryMinutes ?? 10} minutes.`,
+  });
+};
+
 export const auth = betterAuth({
   secret: envVars.BETTER_AUTH_SECRET,
   baseURL: envVars.BETTER_AUTH_URL,
+  basePath: envVars.BETTER_AUTH_BASE_PATH,
   trustedOrigins: [envVars.FRONTEND_URL, envVars.BETTER_AUTH_URL],
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
+  }),
+  ...(envVars.OAUTH?.GOOGLE && {
+    socialProviders: {
+      google: {
+        clientId: envVars.OAUTH.GOOGLE.CLIENT_ID,
+        clientSecret: envVars.OAUTH.GOOGLE.CLIENT_SECRET,
+      },
+    },
   }),
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
@@ -45,7 +88,35 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 8,
     maxPasswordLength: 128,
-    requireEmailVerification: false,
+    requireEmailVerification: true,
+    async sendResetPassword({ user, url }) {
+      await sendSecurityEmail({
+        email: user.email,
+        name: user.name,
+        subject: 'Reset your Nexora password',
+        title: 'Reset your password',
+        message: 'Use the secure link below to reset your Nexora password.',
+        actionUrl: url,
+        actionLabel: 'Reset password',
+        expiryMinutes: 60,
+      });
+    },
+  },
+  emailVerification: {
+    sendOnSignUp: true,
+    expiresIn: 60 * 10,
+    async sendVerificationEmail({ user, url }) {
+      await sendSecurityEmail({
+        email: user.email,
+        name: user.name,
+        subject: 'Verify your Nexora email',
+        title: 'Verify your email',
+        message: 'Use the secure link below to verify your Nexora email address.',
+        actionUrl: url,
+        actionLabel: 'Verify email',
+        expiryMinutes: 10,
+      });
+    },
   },
   user: {
     additionalFields: {

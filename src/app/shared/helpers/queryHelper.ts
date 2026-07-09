@@ -610,7 +610,7 @@ export class QueryBuilder<
     Object.keys(value).forEach((operator) => {
       const operatorValue = value[operator];
 
-      const parseItem = (item: any) => {
+      const parseItem = (item: string | number) => {
         if (
           isNumeric &&
           typeof item === "string" &&

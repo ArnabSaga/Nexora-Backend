@@ -27,7 +27,9 @@ export const validateRequest =
       }
 
       if (options.cookies) {
-        req.cookies = (await options.cookies.parseAsync(req.cookies)) as any;
+        req.cookies = (await options.cookies.parseAsync(
+          req.cookies,
+        )) as Request["cookies"];
       }
 
       next();

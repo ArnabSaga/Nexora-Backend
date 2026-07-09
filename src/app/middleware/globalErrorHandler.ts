@@ -4,7 +4,8 @@ import multer from 'multer';
 import { ZodError } from 'zod';
 import { Prisma } from '../../generated/prisma/client';
 import { envVars } from '../config/env';
-import { destroyCloudinaryAssetByUrl, FILE_UPLOAD } from '../lib/cloudinary';
+import { destroyCloudinaryAssetByUrl } from '../lib/cloudinary';
+import { FILE_UPLOAD } from '../shared/constants/upload.constant';
 import AppError from '../shared/errors/AppError';
 import {
   handlePrismaClientInitializationError,
@@ -17,7 +18,7 @@ import { handleZodError } from '../shared/errors/handleZodError';
 import { TErrorSources } from '../shared/types/error.types';
 
 const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
-  if (envVars.NODE_ENV === 'development') {
+  if (envVars.IS_DEV) {
     const method = req.method;
     const url = req.originalUrl || req.url;
 
@@ -95,7 +96,7 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     errorMessages = [
       {
         path: 'rust-engine',
-        message: envVars.NODE_ENV === 'development' ? err.message : simplifiedError.message,
+        message: envVars.IS_DEV ? err.message : simplifiedError.message,
       },
     ];
   } else if (err instanceof multer.MulterError) {
@@ -120,7 +121,7 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
       },
     ];
   } else if (err instanceof Error) {
-    message = envVars.NODE_ENV === 'development' ? err.message : message;
+    message = envVars.IS_DEV ? err.message : message;
     errorMessages = [
       {
         path: '',
@@ -134,8 +135,8 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     statusCode,
     message,
     errorMessages,
-    error: envVars.NODE_ENV === 'development' ? err : undefined,
-    stack: envVars.NODE_ENV === 'development' ? err?.stack : undefined,
+    error: envVars.IS_DEV ? err : undefined,
+    stack: envVars.IS_DEV ? err?.stack : undefined,
   });
 };
 

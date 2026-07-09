@@ -1,4 +1,4 @@
-import type { UserRole, UserStatus } from '../../generated/prisma/client';
+import type { UserRole, UserStatus } from '../../../generated/prisma/client';
 
 declare global {
   namespace Express {

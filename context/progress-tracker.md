@@ -13,7 +13,7 @@ Update this file after every development session. This is the single source of t
 | Project | Nexora |
 | Product Type | Social-professional community platform |
 | Current Phase | Phase 1 — Foundation |
-| Current Focus | Align shared backend helpers with Nexora PRD contracts |
+| Current Focus | Resolve production-readiness review findings |
 | Overall MVP Status | Not Started |
 | Frontend Status | Not Started |
 | Backend Status | In Progress |
@@ -28,11 +28,11 @@ Update this file after every development session. This is the single source of t
 
 | Item | Details |
 |---|---|
-| Task | Review and improve `src/app/shared` helpers, constants, response types, and error utilities |
+| Task | Fix codebase review issues for build, auth security, and config consistency |
 | Owner | Developer |
 | Status | Implemented |
-| Expected Output | Shared utilities use Nexora roles/statuses, upload policy, response shape, and safer query defaults |
-| Acceptance Criteria | TypeScript and Prisma validation pass |
+| Expected Output | Production build passes, auth endpoints are rate-limited, mail env names are aligned, and auth service boundaries are cleaner |
+| Acceptance Criteria | TypeScript, Prisma validation, build, and app import checks pass |
 
 ---
 
@@ -40,11 +40,10 @@ Update this file after every development session. This is the single source of t
 
 | Priority | Task | Type | Dependency |
 |---|---|---|---|
-| 1 | Build auth route/controller integration around Better Auth session contract | Backend | Auth foundation |
-| 2 | Build profile API and avatar/cover upload routes | Backend | Upload helpers |
-| 3 | Build post media upload and post create/feed routes | Backend | Upload helpers |
-| 4 | Add admin user moderation endpoints | Backend | `requireAuth` + `validateRole` |
-| 5 | Setup frontend app | Frontend | Backend route contracts |
+| 1 | Build profile API and avatar/cover upload routes | Backend | Upload helpers |
+| 2 | Build post media upload and post create/feed routes | Backend | Upload helpers |
+| 3 | Add admin user moderation endpoints | Backend | `requireAuth` + `validateRole` |
+| 4 | Setup frontend app | Frontend | Backend route contracts |
 
 ---
 
@@ -54,6 +53,9 @@ Update this file after every development session. This is the single source of t
 |---|---|---|---|
 | Repository structure not finalized | Affects setup commands and imports | Choose monorepo or separate frontend/backend repos | Open |
 | UI mock/reference images not added yet | Affects exact visual styling | Add design reference images later under `context/designs/` | Open |
+| SMTP credentials required in deployed env | Email verification and password reset need SMTP envs to send real emails | Set `MAIL_SMTP_*` variables in deployment | Open |
+| Google OAuth callback/session behavior needs live verification | `/api/v1/auth/google/success` depends on Better Auth setting the session cookie before frontend calls it | Test with real Google OAuth credentials and browser cookies | Open |
+| Shadow database URL not set locally | Prisma migration diff against migrations needs a shadow database | Set `SHADOW_DATABASE_URL` before running migration drift checks | Open |
 
 ---
 
@@ -80,7 +82,7 @@ Update this file after every development session. This is the single source of t
 | Priority | Module | Status | Current Task | Next Task | Blocker |
 |---|---|---|---|---|---|
 | 1 | Foundation | In Progress | Middleware, error helpers, and app wiring compile | Add route registry | None |
-| 2 | Auth | In Progress | Better Auth schema and `requireAuth` middleware aligned with PRD | Build protected auth/user routes | None |
+| 2 | Auth | In Progress | PRD auth routes and Better Auth email callbacks implemented | Verify SMTP credentials in target deployment | SMTP env required |
 | 3 | User | In Progress | User role/status schema ready | Build list/update role/status | Auth required |
 | 4 | Profile | In Progress | Profile schema ready | Build profile CRUD | Auth required |
 | 5 | Experience | In Progress | Experience schema ready | Build CRUD | Profile required |
@@ -159,7 +161,7 @@ Before marking any feature as Done, verify:
 | Better Auth is auth provider | Final | Existing code uses Better Auth Prisma adapter |
 | Prisma IDs use cuid | Final | Use `String @id @default(cuid())` consistently |
 | API error shape uses `errorMessages` | Final | Matches PRD standard response contract |
-| Cloudinary upload folders use Nexora names | Final | Old task/profile env names remain temporary fallbacks only |
+| Cloudinary upload folders use Nexora names | Final | Old task/profile naming removed from upload helpers |
 
 ---
 
@@ -221,12 +223,72 @@ Add notes here after each session.
 - Hardened `QueryBuilder` so filtering and field selection require explicit allowlists.
 - Improved `slugify` for safer profile/community slugs.
 
+### Session 7
+
+- Implemented the Auth module route/controller/service/validation/interface/utils files.
+- Added all PRD auth endpoints under `/api/v1/auth`: register, login, logout, me, verify-email, forgot-password, reset-password, and change-password.
+- Wrapped Better Auth email/password APIs while preserving Nexora response shape through `sendResponse`.
+- Added private route protection with `requireAuth` for logout, me, and change-password.
+- Noted remaining email delivery dependency for real verification and password reset emails.
+
+### Session 8
+
+- Hardened Nexora auth service using the stronger patterns from the Rik Dental Care service without copying dental-specific roles, statuses, OTP, phone, or Google login behavior.
+- Added auth helpers for email normalization, request header conversion, Better Auth error parsing, and cookie forwarding.
+- Added register/login guards for duplicate accounts, deleted accounts, suspended accounts, and inactive account status.
+- Removed `as never` Better Auth endpoint casts from the auth module.
+
+### Session 9
+
+- Added `resendVerificationEmail`, `googleLogin`, and `googleLoginSuccess` to the Auth module.
+- Added routes for `/api/v1/auth/resend-verification-email`, `/api/v1/auth/google`, and `/api/v1/auth/google/success`.
+- Added optional Google OAuth env support through `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+- Configured Better Auth Google provider only when Google credentials are present.
+- Kept email resend tied to Better Auth `sendVerificationEmail`, with live delivery still dependent on adding an email sender callback.
+
+### Session 10
+
+- Replaced the uploaded OTP email markup with an email-client-safe Nexora EJS template using inline styles and no scripts/CDN dependencies.
+- Added a lazy SMTP email helper that does not verify connections during app import and returns clear service errors when SMTP envs are missing.
+- Connected Better Auth email verification and password reset callbacks to the shared Nexora email template.
+- Made SMTP and Google OAuth env groups optional at boot, while keeping actual email sending dependent on `MAIL_SMTP_*` values.
+- Added the standard `ejs` runtime dependency and verified template rendering, Prisma schema validation, TypeScript compilation, and app import.
+
+### Session 11
+
+- Moved dotenv loading out of `env.ts` and into the server bootstrap entry.
+- Updated env config to use typed `NODE_ENV`, numeric `PORT`, trimmed env reads, reusable string/number/boolean env helpers, and `IS_DEV`/`IS_PROD`/`IS_TEST` flags.
+- Renamed config groups to `MAIL` and `OAUTH.GOOGLE`, with complete-or-absent validation for optional provider groups.
+- Updated auth, email, and error-handler consumers to use the new config shape.
+
+### Session 12
+
+- Updated Express CORS to use the configured frontend origin with `credentials: true` for Better Auth cookies.
+- Confirmed Better Auth uses origin-only `BETTER_AUTH_URL` and explicit `/api/auth` base path.
+- Changed Better Auth email/password policy to require email verification and send verification emails on sign-up.
+- Split `requireAuth` into its own middleware file and kept `validateRole` focused on role authorization.
+- Cleaned reset-password payload forwarding so the token is only sent in the query and the body only contains the new password.
+- Made forgot-password responses generic to avoid revealing whether an email exists.
+- Left `/api/v1/auth/google/success` protected by `requireAuth`, with a live OAuth redirect/session-cookie test still required.
+
+### Session 13
+
+- Fixed the production build script by giving `tsup` an explicit `src/server.ts` entry.
+- Added auth rate limiting for register, login, forgot-password, resend-verification, reset-password, and Google login routes.
+- Refactored the Auth service to receive Better Auth `Headers` instead of Express `Request` objects.
+- Restricted verification, password reset, and Google OAuth callback URLs to the configured frontend origin.
+- Made resend-verification responses generic to avoid account-state enumeration.
+- Removed old task/profile upload aliases and remaining local `any` casts from touched middleware/helpers.
+- Aligned local mail env names to `MAIL_SMTP_*`; mail config is required in production and optional when fully absent in development.
+- Added optional `SHADOW_DATABASE_URL` support in Prisma config for migration drift checks.
+- Verified `pnpm tsc --noEmit`, `pnpm prisma validate`, `pnpm build`, and app import.
+
 ---
 
 ## Next Session Plan
 
-1. Build protected auth/user route contracts
-2. Build profile CRUD and avatar/cover upload routes
-3. Build post media upload routes
-4. Add route registry under `/api/v1`
-5. Start admin moderation endpoints
+1. Build profile CRUD and avatar/cover upload routes
+2. Build post media upload routes
+3. Build user/admin moderation endpoints
+4. Start protected feed/post routes
+5. Verify `MAIL_SMTP_*` credentials against the target mail provider when available

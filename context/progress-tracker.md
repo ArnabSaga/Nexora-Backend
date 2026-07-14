@@ -13,14 +13,14 @@ Update this file after every development session. This is the single source of t
 | Project | Nexora |
 | Product Type | Social-professional community platform |
 | Current Phase | Phase 1 — Foundation |
-| Current Focus | Resolve production-readiness review findings |
+| Current Focus | Build MVP feature modules |
 | Overall MVP Status | Not Started |
 | Frontend Status | Not Started |
 | Backend Status | In Progress |
 | Database Status | MVP schema implemented and Prisma-validated |
-| API Status | Route contract draft ready |
+| API Status | Auth and user/follow routes implemented |
 | UI System Status | Tokens/rules/registry drafted |
-| Last Updated | 2026-07-05 |
+| Last Updated | 2026-07-14 |
 
 ---
 
@@ -28,11 +28,11 @@ Update this file after every development session. This is the single source of t
 
 | Item | Details |
 |---|---|
-| Task | Fix codebase review issues for build, auth security, and config consistency |
+| Task | Build user management and follow module |
 | Owner | Developer |
 | Status | Implemented |
-| Expected Output | Production build passes, auth endpoints are rate-limited, mail env names are aligned, and auth service boundaries are cleaner |
-| Acceptance Criteria | TypeScript, Prisma validation, build, and app import checks pass |
+| Expected Output | `/api/v1/users` exposes admin user management, role/status moderation, soft delete, followers/following, follow/unfollow, and suggestions |
+| Acceptance Criteria | TypeScript, Prisma validation, and production build pass |
 
 ---
 
@@ -42,7 +42,7 @@ Update this file after every development session. This is the single source of t
 |---|---|---|---|
 | 1 | Build profile API and avatar/cover upload routes | Backend | Upload helpers |
 | 2 | Build post media upload and post create/feed routes | Backend | Upload helpers |
-| 3 | Add admin user moderation endpoints | Backend | `requireAuth` + `validateRole` |
+| 3 | Build admin dashboard/report moderation endpoints | Backend | Most content/community modules |
 | 4 | Setup frontend app | Frontend | Backend route contracts |
 
 ---
@@ -83,7 +83,7 @@ Update this file after every development session. This is the single source of t
 |---|---|---|---|---|---|
 | 1 | Foundation | In Progress | Middleware, error helpers, and app wiring compile | Add route registry | None |
 | 2 | Auth | In Progress | PRD auth routes and Better Auth email callbacks implemented | Verify SMTP credentials in target deployment | SMTP env required |
-| 3 | User | In Progress | User role/status schema ready | Build list/update role/status | Auth required |
+| 3 | User | Done | User management and role/status/delete endpoints implemented | Add admin dashboard summaries later | None |
 | 4 | Profile | In Progress | Profile schema ready | Build profile CRUD | Auth required |
 | 5 | Experience | In Progress | Experience schema ready | Build CRUD | Profile required |
 | 6 | Education | In Progress | Education schema ready | Build CRUD | Profile required |
@@ -92,7 +92,7 @@ Update this file after every development session. This is the single source of t
 | 9 | Comment | In Progress | Comment schema ready | Build comment CRUD | Post required |
 | 10 | Reaction | In Progress | Reaction schema ready | Build reaction endpoints | Post/comment required |
 | 11 | Vote | In Progress | Vote schema ready | Build vote endpoints | Post/comment required |
-| 12 | Follow | In Progress | Follow schema ready | Build follow/unfollow | User required |
+| 12 | Follow | Done | Follow/unfollow, follower/following lists, and suggestions implemented under `/users` | Add blocked-user and mutual-follow ranking later | None |
 | 13 | Community | In Progress | Community schema ready | Build community CRUD | Auth required |
 | 14 | Community Member | In Progress | Community member schema ready | Build join/leave/roles | Community required |
 | 15 | Community Rule | In Progress | Community rule schema ready | Build rule CRUD | Community required |
@@ -283,12 +283,25 @@ Add notes here after each session.
 - Added optional `SHADOW_DATABASE_URL` support in Prisma config for migration drift checks.
 - Verified `pnpm tsc --noEmit`, `pnpm prisma validate`, `pnpm build`, and app import.
 
+### Session 14
+
+- Implemented the User module under `/api/v1/users` with route/controller/service/validation/interface/constant/utils files.
+- Split account/admin user management into `user.service.ts` and follow behavior into `follow.service.ts`.
+- Added admin user listing with search by name/email/profile username, role/status filters, sorting, pagination, and deleted-user exclusion unless explicitly filtered.
+- Added role-aware user detail responses with public-safe mapping for normal users and admin-safe mapping for admins, while keeping deleted users as `404`.
+- Added role updates, status updates, and soft delete with self-action blocks, transition rules, and session cleanup transactions.
+- Added follow/unfollow, public followers/following lists, and follow suggestions with active/non-deleted/profile-present filtering.
+- Added stable public/admin user mappers with computed avatar priority from `profile.avatar ?? user.image`.
+- Mounted the module in the main API router and fixed the build script to use the explicit `src/server.ts` tsup entry.
+- Hardened follow idempotency, strict public pagination validation, active-user count filtering, relation-filtered suggestions, and explicit admin user selection after review.
+- Verified `pnpm tsc --noEmit`, `pnpm prisma validate`, and `pnpm build`.
+
 ---
 
 ## Next Session Plan
 
 1. Build profile CRUD and avatar/cover upload routes
 2. Build post media upload routes
-3. Build user/admin moderation endpoints
-4. Start protected feed/post routes
+3. Start protected feed/post routes
+4. Build admin dashboard/report moderation endpoints after core content routes
 5. Verify `MAIL_SMTP_*` credentials against the target mail provider when available

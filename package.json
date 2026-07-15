@@ -5,9 +5,23 @@
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
-    "dev": ""
+    "start": "node dist/server.js",
+    "build": "tsup src/server.ts --format esm --clean",
+    "dev": "tsx watch src/server.ts",
+    "migrate": "prisma migrate dev",
+    "generate": "prisma generate",
+    "studio": "prisma studio"
   },
-  "keywords": [],
+  "keywords": [
+    "social-media",
+    "social-network",
+    "social",
+    "network",
+    "media",
+    "chat",
+    "image-sharing",
+    "video-sharing"
+  ],
   "author": "ArnabSaga",
   "license": "ISC",
   "packageManager": "pnpm@11.5.0",
@@ -18,6 +32,7 @@
     "cors": "^2.8.6",
     "date-fns": "^4.4.0",
     "dotenv": "^17.4.2",
+    "ejs": "^3.1.10",
     "eslint": "^10.4.1",
     "express": "^5.2.1",
     "http-status": "^2.1.0",

@@ -1,0 +1,81 @@
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum PostType {
+  PROFESSIONAL
+  SHORT
+  DISCUSSION
+  POLL
+}
+
+enum PostVisibility {
+  PUBLIC
+  FOLLOWERS
+  COMMUNITY_ONLY
+  PRIVATE
+}
+
+enum MediaType {
+  IMAGE
+  FILE
+}
+
+enum ReactionType {
+  LIKE
+  LOVE
+  INSIGHTFUL
+  CELEBRATE
+  FUNNY
+}
+
+enum VoteType {
+  UPVOTE
+  DOWNVOTE
+}
+
+enum CommunityVisibility {
+  PUBLIC
+  RESTRICTED
+  PRIVATE
+}
+
+enum CommunityMemberRole {
+  OWNER
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+enum CommunityMemberStatus {
+  ACTIVE
+  PENDING
+  BANNED
+}
+
+enum NotificationType {
+  FOLLOW
+  REACTION
+  COMMENT
+  REPLY
+  MENTION
+  REPOST
+  COMMUNITY_INVITE
+  COMMUNITY_ROLE_UPDATE
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  REJECTED
+}

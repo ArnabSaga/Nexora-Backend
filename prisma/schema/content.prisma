@@ -1,0 +1,80 @@
+model Post {
+  id           String         @id @default(cuid())
+  authorId     String
+  communityId  String?
+  parentPostId String?
+  repostId     String?
+  content      String
+  postType     PostType       @default(SHORT)
+  visibility   PostVisibility @default(PUBLIC)
+  isEdited     Boolean        @default(false)
+  isDeleted    Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  author        User           @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  community     Community?     @relation(fields: [communityId], references: [id], onDelete: SetNull)
+  parentPost    Post?          @relation("PostThread", fields: [parentPostId], references: [id], onDelete: SetNull)
+  threadReplies Post[]         @relation("PostThread")
+  repostOf      Post?          @relation("PostRepost", fields: [repostId], references: [id], onDelete: SetNull)
+  reposts       Post[]         @relation("PostRepost")
+  media         PostMedia[]
+  comments      Comment[]
+  hashtags      PostHashtag[]
+  mentions      PostMention[]
+  reactions     PostReaction[]
+  votes         PostVote[]
+  bookmarks     Bookmark[]
+  notifications Notification[]
+  reports       PostReport[]
+
+  @@index([authorId])
+  @@index([communityId])
+  @@index([parentPostId])
+  @@index([repostId])
+  @@index([postType])
+  @@index([visibility])
+  @@index([createdAt])
+  @@map("post")
+}
+
+model PostMedia {
+  id        String    @id @default(cuid())
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  url       String
+  mediaType MediaType
+  publicId  String?
+  createdAt DateTime  @default(now())
+
+  @@index([postId])
+  @@map("post_media")
+}
+
+model Comment {
+  id              String   @id @default(cuid())
+  postId          String
+  authorId        String
+  parentCommentId String?
+  content         String
+  isEdited        Boolean  @default(false)
+  isDeleted       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  post          Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author        User              @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  parentComment Comment?          @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies       Comment[]         @relation("CommentReplies")
+  mentions      CommentMention[]
+  reactions     CommentReaction[]
+  votes         CommentVote[]
+  notifications Notification[]
+  reports       CommentReport[]
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([parentCommentId])
+  @@index([createdAt])
+  @@map("comment")
+}

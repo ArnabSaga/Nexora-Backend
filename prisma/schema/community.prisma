@@ -1,0 +1,60 @@
+model Community {
+  id          String              @id @default(cuid())
+  ownerId     String
+  name        String
+  slug        String              @unique
+  description String?
+  avatar      String?
+  coverPhoto  String?
+  visibility  CommunityVisibility @default(PUBLIC)
+  isSuspended Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  owner         User              @relation("CommunityOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  posts         Post[]
+  members       CommunityMember[]
+  rules         CommunityRule[]
+  notifications Notification[]
+  reports       CommunityReport[]
+
+  @@index([ownerId])
+  @@index([slug])
+  @@index([visibility])
+  @@index([isSuspended])
+  @@map("community")
+}
+
+model CommunityMember {
+  id          String                @id @default(cuid())
+  communityId String
+  userId      String
+  role        CommunityMemberRole   @default(MEMBER)
+  status      CommunityMemberStatus @default(ACTIVE)
+  joinedAt    DateTime              @default(now())
+
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([communityId, userId])
+  @@index([communityId])
+  @@index([userId])
+  @@index([role])
+  @@index([status])
+  @@map("community_member")
+}
+
+model CommunityRule {
+  id          String    @id @default(cuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  orderNo     Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([communityId])
+  @@index([orderNo])
+  @@map("community_rule")
+}

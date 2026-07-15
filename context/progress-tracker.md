@@ -12,15 +12,15 @@ Update this file after every development session. This is the single source of t
 |---|---|
 | Project | Nexora |
 | Product Type | Social-professional community platform |
-| Current Phase | Phase 0 — Planning and Context Finalization |
-| Current Focus | Improve Nexora project context files and prepare build-ready documentation |
+| Current Phase | Phase 1 — Foundation |
+| Current Focus | Build MVP feature modules |
 | Overall MVP Status | Not Started |
 | Frontend Status | Not Started |
-| Backend Status | Not Started |
-| Database Status | Draft ERD ready |
-| API Status | Route contract draft ready |
+| Backend Status | In Progress |
+| Database Status | MVP schema implemented and Prisma-validated |
+| API Status | Auth and user/follow routes implemented |
 | UI System Status | Tokens/rules/registry drafted |
-| Last Updated | Update manually after each session |
+| Last Updated | 2026-07-14 |
 
 ---
 
@@ -28,11 +28,11 @@ Update this file after every development session. This is the single source of t
 
 | Item | Details |
 |---|---|
-| Task | Finalize Nexora context documentation |
+| Task | Build user management and follow module |
 | Owner | Developer |
-| Status | In Progress |
-| Expected Output | Complete context folder with architecture, build plan, standards, library docs, UI rules, tokens, registry, overview, and tracker |
-| Acceptance Criteria | All files are Nexora-specific, deeper than initial version, and do not include JobPilot context |
+| Status | Implemented |
+| Expected Output | `/api/v1/users` exposes admin user management, role/status moderation, soft delete, followers/following, follow/unfollow, and suggestions |
+| Acceptance Criteria | TypeScript, Prisma validation, and production build pass |
 
 ---
 
@@ -40,11 +40,10 @@ Update this file after every development session. This is the single source of t
 
 | Priority | Task | Type | Dependency |
 |---|---|---|---|
-| 1 | Create final PRD.md from improved context | Documentation | Context files |
-| 2 | Create final Prisma schema from ERD | Backend | Database decision |
-| 3 | Setup backend app | Backend | Repo setup |
-| 4 | Setup frontend app | Frontend | Repo setup |
-| 5 | Build auth UI and auth API | Full-stack | Backend/frontend setup |
+| 1 | Build profile API and avatar/cover upload routes | Backend | Upload helpers |
+| 2 | Build post media upload and post create/feed routes | Backend | Upload helpers |
+| 3 | Build admin dashboard/report moderation endpoints | Backend | Most content/community modules |
+| 4 | Setup frontend app | Frontend | Backend route contracts |
 
 ---
 
@@ -52,10 +51,11 @@ Update this file after every development session. This is the single source of t
 
 | Blocker | Impact | Resolution Plan | Status |
 |---|---|---|---|
-| Final auth strategy not selected | Affects backend auth implementation | Decide between JWT and Better Auth before coding auth module | Open |
 | Repository structure not finalized | Affects setup commands and imports | Choose monorepo or separate frontend/backend repos | Open |
 | UI mock/reference images not added yet | Affects exact visual styling | Add design reference images later under `context/designs/` | Open |
-| Storage provider not confirmed | Affects upload module | Use Cloudinary by default unless changed | Open |
+| SMTP credentials required in deployed env | Email verification and password reset need SMTP envs to send real emails | Set `MAIL_SMTP_*` variables in deployment | Open |
+| Google OAuth callback/session behavior needs live verification | `/api/v1/auth/google/success` depends on Better Auth setting the session cookie before frontend calls it | Test with real Google OAuth credentials and browser cookies | Open |
+| Shadow database URL not set locally | Prisma migration diff against migrations needs a shadow database | Set `SHADOW_DATABASE_URL` before running migration drift checks | Open |
 
 ---
 
@@ -81,27 +81,27 @@ Update this file after every development session. This is the single source of t
 
 | Priority | Module | Status | Current Task | Next Task | Blocker |
 |---|---|---|---|---|---|
-| 1 | Foundation | Not Started | Setup Express + TypeScript | Add shared helpers | Repo not created |
-| 2 | Auth | Not Started | Select auth strategy | Build register/login | Auth strategy open |
-| 3 | User | Not Started | Define admin user flow | Build list/update role/status | Auth required |
-| 4 | Profile | Not Started | Finalize profile schema | Build profile CRUD | Auth required |
-| 5 | Experience | Not Started | Confirm fields | Build CRUD | Profile required |
-| 6 | Education | Not Started | Confirm fields | Build CRUD | Profile required |
-| 7 | Skill | Not Started | Confirm skill model | Build add/delete | Profile required |
-| 8 | Post | Not Started | Finalize post schema | Build create/feed/details | Auth/profile required |
-| 9 | Comment | Not Started | Confirm nested replies | Build comment CRUD | Post required |
-| 10 | Reaction | Not Started | Confirm reaction types | Build reaction endpoints | Post/comment required |
-| 11 | Vote | Not Started | Confirm vote behavior | Build vote endpoints | Post/comment required |
-| 12 | Follow | Not Started | Confirm self-follow rule | Build follow/unfollow | User required |
-| 13 | Community | Not Started | Confirm visibility rules | Build community CRUD | Auth required |
-| 14 | Community Member | Not Started | Confirm role permissions | Build join/leave/roles | Community required |
-| 15 | Community Rule | Not Started | Confirm moderation scope | Build rule CRUD | Community required |
-| 16 | Bookmark | Not Started | Confirm save behavior | Build bookmark endpoints | Post required |
-| 17 | Notification | Not Started | Define event triggers | Build notification helper | Engagement required |
-| 18 | Report | Not Started | Confirm report targets | Build report endpoints | Content/community required |
-| 19 | Search | Not Started | Select search strategy | Build basic search | Data required |
-| 20 | Hashtag | Not Started | Confirm extraction logic | Build trending/tags | Post required |
-| 21 | Upload | Not Started | Confirm Cloudinary config | Build upload endpoints | Storage decision |
+| 1 | Foundation | In Progress | Middleware, error helpers, and app wiring compile | Add route registry | None |
+| 2 | Auth | In Progress | PRD auth routes and Better Auth email callbacks implemented | Verify SMTP credentials in target deployment | SMTP env required |
+| 3 | User | Done | User management and role/status/delete endpoints implemented | Add admin dashboard summaries later | None |
+| 4 | Profile | In Progress | Profile schema ready | Build profile CRUD | Auth required |
+| 5 | Experience | In Progress | Experience schema ready | Build CRUD | Profile required |
+| 6 | Education | In Progress | Education schema ready | Build CRUD | Profile required |
+| 7 | Skill | In Progress | Skill schema ready | Build add/delete | Profile required |
+| 8 | Post | In Progress | Post schema ready | Build create/feed/details | Auth/profile required |
+| 9 | Comment | In Progress | Comment schema ready | Build comment CRUD | Post required |
+| 10 | Reaction | In Progress | Reaction schema ready | Build reaction endpoints | Post/comment required |
+| 11 | Vote | In Progress | Vote schema ready | Build vote endpoints | Post/comment required |
+| 12 | Follow | Done | Follow/unfollow, follower/following lists, and suggestions implemented under `/users` | Add blocked-user and mutual-follow ranking later | None |
+| 13 | Community | In Progress | Community schema ready | Build community CRUD | Auth required |
+| 14 | Community Member | In Progress | Community member schema ready | Build join/leave/roles | Community required |
+| 15 | Community Rule | In Progress | Community rule schema ready | Build rule CRUD | Community required |
+| 16 | Bookmark | In Progress | Bookmark schema ready | Build bookmark endpoints | Post required |
+| 17 | Notification | In Progress | Notification schema ready | Build notification helper | Engagement required |
+| 18 | Report | In Progress | Report schema ready | Build report endpoints | Content/community required |
+| 19 | Search | In Progress | Search entities ready for PostgreSQL basic search | Build basic search | Data required |
+| 20 | Hashtag | In Progress | Hashtag schema ready | Build trending/tags | Post required |
+| 21 | Upload | In Progress | Cloudinary storage helpers and MIME policies ready | Build upload endpoints | None |
 | 22 | Admin | Not Started | Confirm dashboard metrics | Build admin dashboard API | Most modules required |
 
 ### Frontend Pages
@@ -158,6 +158,10 @@ Before marking any feature as Done, verify:
 | Core stack uses Next.js + Express + Prisma + PostgreSQL | Proposed | Can be finalized before coding |
 | Cloudinary for media | Proposed | Recommended default |
 | Redis and Socket.IO later | Proposed | Not required for MVP |
+| Better Auth is auth provider | Final | Existing code uses Better Auth Prisma adapter |
+| Prisma IDs use cuid | Final | Use `String @id @default(cuid())` consistently |
+| API error shape uses `errorMessages` | Final | Matches PRD standard response contract |
+| Cloudinary upload folders use Nexora names | Final | Old task/profile naming removed from upload helpers |
 
 ---
 
@@ -165,9 +169,7 @@ Before marking any feature as Done, verify:
 
 | Decision | Options | Recommendation | Needed Before |
 |---|---|---|---|
-| Auth strategy | JWT / Better Auth | JWT for learning and backend control, Better Auth for faster auth | Auth module |
 | Repo structure | Monorepo / Separate repos | Monorepo if comfortable, separate repos if simpler | Setup |
-| File upload | Cloudinary / S3 | Cloudinary for MVP | Upload module |
 | Feed pagination | Offset / Cursor | Offset for MVP, cursor later | Feed module |
 | Search | PostgreSQL basic / Meilisearch | PostgreSQL basic first | Search module |
 
@@ -182,12 +184,124 @@ Add notes here after each session.
 - Created initial Nexora context files.
 - Improved documents with deeper architecture, API routes, build plan, database ERD, library usage, and actionable tracker.
 
+### Session 2
+
+- Updated Better Auth Prisma schema for Nexora with user role, status, login metadata, soft-delete timestamp, and `User.profile` relation.
+- Added a minimal `Profile` schema stub only to support the auth relation; full profile fields remain for the profile module.
+- Created the remaining MVP Prisma schema files for profile details, posts, comments, communities, engagement, follows, bookmarks, hashtags, mentions, notifications, and reports.
+- Ran `pnpm prisma format`, `pnpm prisma validate`, and `pnpm prisma generate` successfully for the full schema.
+- Split polymorphic engagement targets into `PostReaction`, `CommentReaction`, `PostVote`, and `CommentVote` to prevent invalid empty or multi-target rows.
+- Split mentions and reports into target-specific models to protect data integrity and moderation history.
+- Added Better Auth account uniqueness on provider/account identity and changed key audit/content relations to restrict hard deletes.
+
+### Session 3
+
+- Updated `src/app/lib/auth.ts` to use env-backed Better Auth secret/base URL/trusted origins.
+- Enabled email/password auth and exposed Nexora `role`, `status`, and `lastLoginAt` fields through Better Auth additional fields.
+- Added hooks to normalize email, create the initial `Profile` row after user creation, block suspended/deleted users before session creation, and update `lastLoginAt` after login.
+
+### Session 4
+
+- Added PRD-aligned global error handling with `errorMessages`, sanitized Prisma/Zod helpers, and Cloudinary cleanup on failed upload requests.
+- Added Nexora Cloudinary folders for post media, profile avatars, and profile covers, with temporary fallback support for old task/profile folder env names.
+- Added `requireAuth` as the Better Auth session bridge and updated `validateRole` to use Nexora roles only.
+- Mounted Better Auth, not-found middleware, and global error handling in the Express app.
+
+### Session 5
+
+- Split Prisma error handling into focused files for known request, validation, unknown, initialization, rust panic, and shared utility logic.
+- Restored the PRD error response contract in uploaded Prisma/Zod helpers by returning `errorMessages` instead of `errorSources`.
+- Added a shared `TErrorResponse` type for reusable error formatter outputs.
+- Fixed Cloudinary folder env handling so new Nexora folder variables are optional with temporary old-name fallbacks.
+
+### Session 6
+
+- Reviewed all files under `src/app/shared` for Nexora PRD fit.
+- Updated shared role/status constants to match `USER`, `MODERATOR`, `ADMIN`, `SUPER_ADMIN` and `ACTIVE`, `SUSPENDED`, `DELETED`.
+- Added shared response types and fixed `sendResponse` to include `statusCode` in success payloads.
+- Aligned shared upload constants with MVP media support and reused them from Cloudinary config.
+- Hardened `QueryBuilder` so filtering and field selection require explicit allowlists.
+- Improved `slugify` for safer profile/community slugs.
+
+### Session 7
+
+- Implemented the Auth module route/controller/service/validation/interface/utils files.
+- Added all PRD auth endpoints under `/api/v1/auth`: register, login, logout, me, verify-email, forgot-password, reset-password, and change-password.
+- Wrapped Better Auth email/password APIs while preserving Nexora response shape through `sendResponse`.
+- Added private route protection with `requireAuth` for logout, me, and change-password.
+- Noted remaining email delivery dependency for real verification and password reset emails.
+
+### Session 8
+
+- Hardened Nexora auth service using the stronger patterns from the Rik Dental Care service without copying dental-specific roles, statuses, OTP, phone, or Google login behavior.
+- Added auth helpers for email normalization, request header conversion, Better Auth error parsing, and cookie forwarding.
+- Added register/login guards for duplicate accounts, deleted accounts, suspended accounts, and inactive account status.
+- Removed `as never` Better Auth endpoint casts from the auth module.
+
+### Session 9
+
+- Added `resendVerificationEmail`, `googleLogin`, and `googleLoginSuccess` to the Auth module.
+- Added routes for `/api/v1/auth/resend-verification-email`, `/api/v1/auth/google`, and `/api/v1/auth/google/success`.
+- Added optional Google OAuth env support through `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+- Configured Better Auth Google provider only when Google credentials are present.
+- Kept email resend tied to Better Auth `sendVerificationEmail`, with live delivery still dependent on adding an email sender callback.
+
+### Session 10
+
+- Replaced the uploaded OTP email markup with an email-client-safe Nexora EJS template using inline styles and no scripts/CDN dependencies.
+- Added a lazy SMTP email helper that does not verify connections during app import and returns clear service errors when SMTP envs are missing.
+- Connected Better Auth email verification and password reset callbacks to the shared Nexora email template.
+- Made SMTP and Google OAuth env groups optional at boot, while keeping actual email sending dependent on `MAIL_SMTP_*` values.
+- Added the standard `ejs` runtime dependency and verified template rendering, Prisma schema validation, TypeScript compilation, and app import.
+
+### Session 11
+
+- Moved dotenv loading out of `env.ts` and into the server bootstrap entry.
+- Updated env config to use typed `NODE_ENV`, numeric `PORT`, trimmed env reads, reusable string/number/boolean env helpers, and `IS_DEV`/`IS_PROD`/`IS_TEST` flags.
+- Renamed config groups to `MAIL` and `OAUTH.GOOGLE`, with complete-or-absent validation for optional provider groups.
+- Updated auth, email, and error-handler consumers to use the new config shape.
+
+### Session 12
+
+- Updated Express CORS to use the configured frontend origin with `credentials: true` for Better Auth cookies.
+- Confirmed Better Auth uses origin-only `BETTER_AUTH_URL` and explicit `/api/auth` base path.
+- Changed Better Auth email/password policy to require email verification and send verification emails on sign-up.
+- Split `requireAuth` into its own middleware file and kept `validateRole` focused on role authorization.
+- Cleaned reset-password payload forwarding so the token is only sent in the query and the body only contains the new password.
+- Made forgot-password responses generic to avoid revealing whether an email exists.
+- Left `/api/v1/auth/google/success` protected by `requireAuth`, with a live OAuth redirect/session-cookie test still required.
+
+### Session 13
+
+- Fixed the production build script by giving `tsup` an explicit `src/server.ts` entry.
+- Added auth rate limiting for register, login, forgot-password, resend-verification, reset-password, and Google login routes.
+- Refactored the Auth service to receive Better Auth `Headers` instead of Express `Request` objects.
+- Restricted verification, password reset, and Google OAuth callback URLs to the configured frontend origin.
+- Made resend-verification responses generic to avoid account-state enumeration.
+- Removed old task/profile upload aliases and remaining local `any` casts from touched middleware/helpers.
+- Aligned local mail env names to `MAIL_SMTP_*`; mail config is required in production and optional when fully absent in development.
+- Added optional `SHADOW_DATABASE_URL` support in Prisma config for migration drift checks.
+- Verified `pnpm tsc --noEmit`, `pnpm prisma validate`, `pnpm build`, and app import.
+
+### Session 14
+
+- Implemented the User module under `/api/v1/users` with route/controller/service/validation/interface/constant/utils files.
+- Split account/admin user management into `user.service.ts` and follow behavior into `follow.service.ts`.
+- Added admin user listing with search by name/email/profile username, role/status filters, sorting, pagination, and deleted-user exclusion unless explicitly filtered.
+- Added role-aware user detail responses with public-safe mapping for normal users and admin-safe mapping for admins, while keeping deleted users as `404`.
+- Added role updates, status updates, and soft delete with self-action blocks, transition rules, and session cleanup transactions.
+- Added follow/unfollow, public followers/following lists, and follow suggestions with active/non-deleted/profile-present filtering.
+- Added stable public/admin user mappers with computed avatar priority from `profile.avatar ?? user.image`.
+- Mounted the module in the main API router and fixed the build script to use the explicit `src/server.ts` tsup entry.
+- Hardened follow idempotency, strict public pagination validation, active-user count filtering, relation-filtered suggestions, and explicit admin user selection after review.
+- Verified `pnpm tsc --noEmit`, `pnpm prisma validate`, and `pnpm build`.
+
 ---
 
 ## Next Session Plan
 
-1. Decide auth strategy
-2. Decide repository structure
-3. Generate Prisma schema from ERD
-4. Generate backend foundation files
-5. Start Auth module
+1. Build profile CRUD and avatar/cover upload routes
+2. Build post media upload routes
+3. Start protected feed/post routes
+4. Build admin dashboard/report moderation endpoints after core content routes
+5. Verify `MAIL_SMTP_*` credentials against the target mail provider when available

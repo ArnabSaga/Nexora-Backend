@@ -1,0 +1,94 @@
+model User {
+  id                        String            @id @default(cuid())
+  name                      String
+  email                     String
+  emailVerified             Boolean           @default(false)
+  image                     String?
+  role                      UserRole          @default(USER)
+  status                    UserStatus        @default(ACTIVE)
+  lastLoginAt               DateTime?
+  deletedAt                 DateTime?
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+  sessions                  Session[]
+  accounts                  Account[]
+  profile                   Profile?
+  posts                     Post[]            @relation("PostAuthor")
+  comments                  Comment[]         @relation("CommentAuthor")
+  experiences               Experience[]
+  educations                Education[]
+  userSkills                UserSkill[]
+  following                 Follow[]          @relation("FollowFollower")
+  followers                 Follow[]          @relation("FollowFollowing")
+  postReactions             PostReaction[]
+  commentReactions          CommentReaction[]
+  postVotes                 PostVote[]
+  commentVotes              CommentVote[]
+  bookmarks                 Bookmark[]
+  ownedCommunities          Community[]       @relation("CommunityOwner")
+  communityMemberships      CommunityMember[]
+  notificationsReceived     Notification[]    @relation("NotificationReceiver")
+  notificationsSent         Notification[]    @relation("NotificationSender")
+  userReportsSubmitted      UserReport[]      @relation("UserReportReporter")
+  userReportsReceived       UserReport[]      @relation("UserReportTarget")
+  postReportsSubmitted      PostReport[]      @relation("PostReportReporter")
+  commentReportsSubmitted   CommentReport[]   @relation("CommentReportReporter")
+  communityReportsSubmitted CommunityReport[] @relation("CommunityReportReporter")
+  postMentions              PostMention[]     @relation("PostMentionedUser")
+  commentMentions           CommentMention[]  @relation("CommentMentionedUser")
+
+  @@unique([email])
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}

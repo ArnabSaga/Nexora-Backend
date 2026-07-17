@@ -1,11 +1,11 @@
 import status from "http-status";
 import {
-  PostVisibility,
   Prisma,
   UserRole,
   UserStatus,
 } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
+import { PUBLIC_PROFILE_POST_WHERE } from "../../shared/constants/post.constant";
 import AppError from "../../shared/errors/AppError";
 import { paginationHelper } from "../../shared/helpers/paginationHelper";
 import {
@@ -26,11 +26,6 @@ import {
   mapAdminUser,
   mapPublicUser,
 } from "./user.utils";
-
-const publicPostWhere = {
-  isDeleted: false,
-  visibility: PostVisibility.PUBLIC,
-} as const;
 
 const getSearchWhere = (searchTerm?: string): Prisma.UserWhereInput => {
   if (!searchTerm) {
@@ -98,8 +93,8 @@ const getUserForManagementOrThrow = async (id: string) => {
 const getPublicPostsCount = async (authorId: string) => {
   return prisma.post.count({
     where: {
+      ...PUBLIC_PROFILE_POST_WHERE,
       authorId,
-      ...publicPostWhere,
     },
   });
 };

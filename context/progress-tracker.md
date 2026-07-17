@@ -13,12 +13,12 @@ Update this file after every development session. This is the single source of t
 | Project | Nexora |
 | Product Type | Social-professional community platform |
 | Current Phase | Phase 1 — Foundation |
-| Current Focus | Build MVP feature modules |
+| Current Focus | Build MVP content modules |
 | Overall MVP Status | Not Started |
 | Frontend Status | Not Started |
 | Backend Status | In Progress |
 | Database Status | MVP schema implemented and Prisma-validated |
-| API Status | Auth and user/follow routes implemented |
+| API Status | Auth, user/follow, and profile routes implemented |
 | UI System Status | Tokens/rules/registry drafted |
 | Last Updated | 2026-07-14 |
 
@@ -28,10 +28,10 @@ Update this file after every development session. This is the single source of t
 
 | Item | Details |
 |---|---|
-| Task | Build user management and follow module |
+| Task | Build profile module |
 | Owner | Developer |
 | Status | Implemented |
-| Expected Output | `/api/v1/users` exposes admin user management, role/status moderation, soft delete, followers/following, follow/unfollow, and suggestions |
+| Expected Output | `/api/v1/profiles` and `/api/v1/profile` expose profile identity, media, experience, education, and skill management |
 | Acceptance Criteria | TypeScript, Prisma validation, and production build pass |
 
 ---
@@ -40,8 +40,8 @@ Update this file after every development session. This is the single source of t
 
 | Priority | Task | Type | Dependency |
 |---|---|---|---|
-| 1 | Build profile API and avatar/cover upload routes | Backend | Upload helpers |
-| 2 | Build post media upload and post create/feed routes | Backend | Upload helpers |
+| 1 | Build post media upload and post create/feed routes | Backend | Upload helpers + profile/user modules |
+| 2 | Build comment/reaction/vote routes | Backend | Post module |
 | 3 | Build admin dashboard/report moderation endpoints | Backend | Most content/community modules |
 | 4 | Setup frontend app | Frontend | Backend route contracts |
 
@@ -84,10 +84,10 @@ Update this file after every development session. This is the single source of t
 | 1 | Foundation | In Progress | Middleware, error helpers, and app wiring compile | Add route registry | None |
 | 2 | Auth | In Progress | PRD auth routes and Better Auth email callbacks implemented | Verify SMTP credentials in target deployment | SMTP env required |
 | 3 | User | Done | User management and role/status/delete endpoints implemented | Add admin dashboard summaries later | None |
-| 4 | Profile | In Progress | Profile schema ready | Build profile CRUD | Auth required |
-| 5 | Experience | In Progress | Experience schema ready | Build CRUD | Profile required |
-| 6 | Education | In Progress | Education schema ready | Build CRUD | Profile required |
-| 7 | Skill | In Progress | Skill schema ready | Build add/delete | Profile required |
+| 4 | Profile | Done | Profile identity and media routes implemented | Add profile completeness later | None |
+| 5 | Experience | Done | Experience CRUD implemented | Surface in post/profile UI later | None |
+| 6 | Education | Done | Education CRUD implemented | Surface in profile UI later | None |
+| 7 | Skill | Done | Skill add/list/delete implemented with normalized uniqueness | Add skill suggestions later | None |
 | 8 | Post | In Progress | Post schema ready | Build create/feed/details | Auth/profile required |
 | 9 | Comment | In Progress | Comment schema ready | Build comment CRUD | Post required |
 | 10 | Reaction | In Progress | Reaction schema ready | Build reaction endpoints | Post/comment required |
@@ -296,12 +296,22 @@ Add notes here after each session.
 - Hardened follow idempotency, strict public pagination validation, active-user count filtering, relation-filtered suggestions, and explicit admin user selection after review.
 - Verified `pnpm tsc --noEmit`, `pnpm prisma validate`, and `pnpm build`.
 
+### Session 15
+
+- Implemented the Profile module with `/api/v1/profiles` identity/media routes and `/api/v1/profile` professional-detail routes.
+- Added profile, profile media, experience, education, and skill services with owner-scoped mutations.
+- Added deterministic username generation reuse between auth and profile auto-creation.
+- Added strict date-only helpers for experience and education dates.
+- Added `Skill.normalizedName` with a manually reviewed phased migration for duplicate cleanup.
+- Added Cloudinary profile media cleanup that preserves the original database error on failure.
+- Updated architecture, build plan, library docs, and progress tracker for the profile module.
+
 ---
 
 ## Next Session Plan
 
-1. Build profile CRUD and avatar/cover upload routes
-2. Build post media upload routes
-3. Start protected feed/post routes
+1. Build post media upload routes
+2. Start protected feed/post routes
+3. Build comment/reaction/vote routes
 4. Build admin dashboard/report moderation endpoints after core content routes
 5. Verify `MAIL_SMTP_*` credentials against the target mail provider when available

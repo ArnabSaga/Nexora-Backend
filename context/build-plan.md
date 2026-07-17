@@ -203,6 +203,8 @@ Prepare Nexora-specific documentation, repository structure, development environ
 
 ## Phase 3 — Profile System
 
+Backend status: implemented for profile identity, media upload, experience, education, and skills.
+
 ### 3.1 Public Profile UI
 
 **UI Work**

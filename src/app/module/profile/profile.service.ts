@@ -8,9 +8,8 @@ import {
   createProfileUsernameCandidate,
   normalizeUsername,
 } from "../../shared/helpers/username";
+import { ProfessionalService } from "../professional/professional.service";
 import { ACTIVE_PUBLIC_USER_WHERE } from "../user/user.constant";
-import { getEducationRows } from "./education.service";
-import { getExperienceRows } from "./experience.service";
 import {
   PROFILE_OWNER_SELECT,
   PROFILE_UPDATE_FIELDS,
@@ -19,7 +18,6 @@ import {
 } from "./profile.constant";
 import { TUpdateProfilePayload } from "./profile.interface";
 import { mapOwnProfile, mapPublicProfile } from "./profile.utils";
-import { getSkillRows } from "./skill.service";
 
 const getPublicPostsCount = async (authorId: string) => {
   return prisma.post.count({
@@ -106,7 +104,7 @@ export const ensureProfileForUser = async (userId: string) => {
 const getOwnProfile = async (userId: string) => {
   await ensureProfileForUser(userId);
 
-  const [user, postsCount, experience, education, skills] = await Promise.all([
+  const [user, postsCount, professionalDetails] = await Promise.all([
     prisma.user.findUnique({
       where: {
         id: userId,
@@ -114,9 +112,7 @@ const getOwnProfile = async (userId: string) => {
       select: PROFILE_OWNER_SELECT,
     }),
     getPublicPostsCount(userId),
-    getExperienceRows(userId),
-    getEducationRows(userId),
-    getSkillRows(userId),
+    ProfessionalService.getOwnProfessionalDetails(userId),
   ]);
 
   if (!user || !user.profile) {
@@ -126,9 +122,7 @@ const getOwnProfile = async (userId: string) => {
   return mapOwnProfile({
     user,
     postsCount,
-    experience,
-    education,
-    skills,
+    professionalDetails,
   });
 };
 
@@ -156,19 +150,15 @@ const getPublicProfile = async (username: string) => {
     throw new AppError(status.NOT_FOUND, "Profile not found");
   }
 
-  const [postsCount, experience, education, skills] = await Promise.all([
+  const [postsCount, professionalDetails] = await Promise.all([
     getPublicPostsCount(user.id),
-    getExperienceRows(user.id),
-    getEducationRows(user.id),
-    getSkillRows(user.id),
+    ProfessionalService.getPublicProfessionalDetails(user.id),
   ]);
 
   return mapPublicProfile({
     user,
     postsCount,
-    experience,
-    education,
-    skills,
+    professionalDetails,
   });
 };
 

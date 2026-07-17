@@ -1,3 +1,5 @@
+import type { TProfessionalDetails } from "../professional/professional.interface";
+
 export type TProfileCounts = {
   followersCount: number;
   followingCount: number;
@@ -27,45 +29,13 @@ export type TProfileInfo = {
   updatedAt: Date;
 };
 
-export type TExperienceResponse = {
-  id: string;
-  title: string;
-  company: string;
-  location: string | null;
-  startDate: string;
-  endDate: string | null;
-  isCurrent: boolean;
-  description: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type TEducationResponse = {
-  id: string;
-  institution: string;
-  degree: string | null;
-  fieldOfStudy: string | null;
-  startDate: string | null;
-  endDate: string | null;
-  description: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export type TSkillResponse = {
-  id: string;
-  skillId: string;
-  name: string;
-  createdAt: Date;
-};
-
 export type TProfileResponse = {
   user: TProfileUserSummary;
   profile: TProfileInfo;
   counts: TProfileCounts;
-  experience: TExperienceResponse[];
-  education: TEducationResponse[];
-  skills: TSkillResponse[];
+  experience: TProfessionalDetails["experience"];
+  education: TProfessionalDetails["education"];
+  skills: TProfessionalDetails["skills"];
 };
 
 export type TUpdateProfilePayload = {
@@ -76,31 +46,4 @@ export type TUpdateProfilePayload = {
   website?: string | null;
   profession?: string | null;
   company?: string | null;
-};
-
-export type TCreateExperiencePayload = {
-  title: string;
-  company: string;
-  location?: string | null;
-  startDate: string;
-  endDate?: string | null;
-  isCurrent?: boolean;
-  description?: string | null;
-};
-
-export type TUpdateExperiencePayload = Partial<TCreateExperiencePayload>;
-
-export type TCreateEducationPayload = {
-  institution: string;
-  degree?: string | null;
-  fieldOfStudy?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
-  description?: string | null;
-};
-
-export type TUpdateEducationPayload = Partial<TCreateEducationPayload>;
-
-export type TCreateSkillPayload = {
-  name: string;
 };

@@ -1,10 +1,5 @@
-import {
-  TEducationResponse,
-  TExperienceResponse,
-  TProfileResponse,
-  TSkillResponse,
-} from "./profile.interface";
-import { serializeDateOnly } from "../../shared/helpers/dateOnly";
+import { TProfileResponse } from "./profile.interface";
+import type { TProfessionalDetails } from "../professional/professional.interface";
 
 type TCountPayload = {
   followers?: number;
@@ -37,86 +32,14 @@ type TUserPayload = {
   _count?: TCountPayload;
 };
 
-type TExperiencePayload = {
-  id: string;
-  title: string;
-  company: string;
-  location?: string | null;
-  startDate: Date;
-  endDate?: Date | null;
-  isCurrent: boolean;
-  description?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type TEducationPayload = {
-  id: string;
-  institution: string;
-  degree?: string | null;
-  fieldOfStudy?: string | null;
-  startDate?: Date | null;
-  endDate?: Date | null;
-  description?: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-type TUserSkillPayload = {
-  id: string;
-  skillId: string;
-  createdAt: Date;
-  skill: {
-    id: string;
-    name: string;
-  };
-};
-
-export const mapExperience = (
-  experience: TExperiencePayload,
-): TExperienceResponse => ({
-  id: experience.id,
-  title: experience.title,
-  company: experience.company,
-  location: experience.location ?? null,
-  startDate: serializeDateOnly(experience.startDate)!,
-  endDate: serializeDateOnly(experience.endDate),
-  isCurrent: experience.isCurrent,
-  description: experience.description ?? null,
-  createdAt: experience.createdAt,
-  updatedAt: experience.updatedAt,
-});
-
-export const mapEducation = (
-  education: TEducationPayload,
-): TEducationResponse => ({
-  id: education.id,
-  institution: education.institution,
-  degree: education.degree ?? null,
-  fieldOfStudy: education.fieldOfStudy ?? null,
-  startDate: serializeDateOnly(education.startDate),
-  endDate: serializeDateOnly(education.endDate),
-  description: education.description ?? null,
-  createdAt: education.createdAt,
-  updatedAt: education.updatedAt,
-});
-
-export const mapSkill = (userSkill: TUserSkillPayload): TSkillResponse => ({
-  id: userSkill.id,
-  skillId: userSkill.skillId,
-  name: userSkill.skill.name,
-  createdAt: userSkill.createdAt,
-});
-
 const mapProfileBase = (options: {
   user: TUserPayload;
   postsCount: number;
-  experience: TExperiencePayload[];
-  education: TEducationPayload[];
-  skills: TUserSkillPayload[];
+  professionalDetails: TProfessionalDetails;
   includePrivateUserFields: boolean;
 }): TProfileResponse => {
-  const { user, postsCount, includePrivateUserFields } = options;
+  const { user, postsCount, professionalDetails, includePrivateUserFields } =
+    options;
   const profile = user.profile;
 
   if (!profile) {
@@ -152,18 +75,16 @@ const mapProfileBase = (options: {
       followingCount: user._count?.following ?? 0,
       postsCount,
     },
-    experience: options.experience.map(mapExperience),
-    education: options.education.map(mapEducation),
-    skills: options.skills.map(mapSkill),
+    experience: professionalDetails.experience,
+    education: professionalDetails.education,
+    skills: professionalDetails.skills,
   };
 };
 
 export const mapOwnProfile = (options: {
   user: TUserPayload;
   postsCount: number;
-  experience: TExperiencePayload[];
-  education: TEducationPayload[];
-  skills: TUserSkillPayload[];
+  professionalDetails: TProfessionalDetails;
 }) => {
   return mapProfileBase({
     ...options,
@@ -174,9 +95,7 @@ export const mapOwnProfile = (options: {
 export const mapPublicProfile = (options: {
   user: TUserPayload;
   postsCount: number;
-  experience: TExperiencePayload[];
-  education: TEducationPayload[];
-  skills: TUserSkillPayload[];
+  professionalDetails: TProfessionalDetails;
 }) => {
   return mapProfileBase({
     ...options,

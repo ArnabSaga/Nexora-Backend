@@ -8,6 +8,9 @@ import {
 import { requireAuth } from "../../middleware/requireAuth";
 import { validateRequest } from "../../middleware/validateRequest";
 import { FILE_UPLOAD } from "../../shared/constants/upload.constant";
+import { EducationRoutes } from "../education/education.route";
+import { ExperienceRoutes } from "../experience/experience.route";
+import { SkillRoutes } from "../skill/skill.route";
 import { ProfileController } from "./profile.controller";
 import { ProfileValidation } from "./profile.validation";
 
@@ -59,85 +62,9 @@ profileIdentityRouter.get(
   ProfileController.getPublicProfile,
 );
 
-professionalProfileRouter.post(
-  "/experience",
-  requireAuth,
-  validateRequest({ body: ProfileValidation.createExperience }),
-  ProfileController.createExperience,
-);
-
-professionalProfileRouter.get(
-  "/experience",
-  requireAuth,
-  ProfileController.getMyExperiences,
-);
-
-professionalProfileRouter.patch(
-  "/experience/:id",
-  requireAuth,
-  validateRequest({
-    params: ProfileValidation.idParam,
-    body: ProfileValidation.updateExperience,
-  }),
-  ProfileController.updateExperience,
-);
-
-professionalProfileRouter.delete(
-  "/experience/:id",
-  requireAuth,
-  validateRequest({ params: ProfileValidation.idParam }),
-  ProfileController.deleteExperience,
-);
-
-professionalProfileRouter.post(
-  "/education",
-  requireAuth,
-  validateRequest({ body: ProfileValidation.createEducation }),
-  ProfileController.createEducation,
-);
-
-professionalProfileRouter.get(
-  "/education",
-  requireAuth,
-  ProfileController.getMyEducation,
-);
-
-professionalProfileRouter.patch(
-  "/education/:id",
-  requireAuth,
-  validateRequest({
-    params: ProfileValidation.idParam,
-    body: ProfileValidation.updateEducation,
-  }),
-  ProfileController.updateEducation,
-);
-
-professionalProfileRouter.delete(
-  "/education/:id",
-  requireAuth,
-  validateRequest({ params: ProfileValidation.idParam }),
-  ProfileController.deleteEducation,
-);
-
-professionalProfileRouter.post(
-  "/skills",
-  requireAuth,
-  validateRequest({ body: ProfileValidation.createSkill }),
-  ProfileController.addSkill,
-);
-
-professionalProfileRouter.get(
-  "/skills",
-  requireAuth,
-  ProfileController.getMySkills,
-);
-
-professionalProfileRouter.delete(
-  "/skills/:id",
-  requireAuth,
-  validateRequest({ params: ProfileValidation.idParam }),
-  ProfileController.deleteSkill,
-);
+professionalProfileRouter.use("/experience", ExperienceRoutes);
+professionalProfileRouter.use("/education", EducationRoutes);
+professionalProfileRouter.use("/skills", SkillRoutes);
 
 export const ProfileIdentityRoutes = profileIdentityRouter;
 export const ProfessionalProfileRoutes = professionalProfileRouter;

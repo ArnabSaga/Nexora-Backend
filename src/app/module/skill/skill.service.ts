@@ -1,14 +1,14 @@
 import status from "http-status";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
+import { isUniqueConstraintOn } from "../../shared/helpers/prismaUnique";
 import {
   cleanSkillDisplayName,
   normalizeSkillName,
 } from "../../shared/helpers/skillName";
-import { isUniqueConstraintOn } from "../../shared/helpers/prismaUnique";
-import { TCreateSkillPayload } from "./profile.interface";
-import { USER_SKILL_SELECT } from "./profile.constant";
-import { mapSkill } from "./profile.utils";
+import { USER_SKILL_SELECT } from "./skill.constant";
+import { TCreateSkillPayload } from "./skill.interface";
+import { mapSkill } from "./skill.utils";
 
 const getSkillByNormalizedName = async (normalizedName: string) => {
   return prisma.skill.findUnique({
@@ -62,7 +62,7 @@ const getOrCreateSkill = async (name: string) => {
   }
 };
 
-export const getSkillRows = async (userId: string) => {
+const getSkillRows = async (userId: string) => {
   return prisma.userSkill.findMany({
     where: {
       userId,
@@ -76,7 +76,7 @@ export const getSkillRows = async (userId: string) => {
   });
 };
 
-const addSkill = async (userId: string, payload: TCreateSkillPayload) => {
+const add = async (userId: string, payload: TCreateSkillPayload) => {
   const skill = await getOrCreateSkill(payload.name);
 
   try {
@@ -117,13 +117,17 @@ const addSkill = async (userId: string, payload: TCreateSkillPayload) => {
   }
 };
 
-const getMySkills = async (userId: string) => {
+const getOwn = async (userId: string) => {
   const skills = await getSkillRows(userId);
 
   return skills.map(mapSkill);
 };
 
-const deleteSkill = async (userId: string, id: string) => {
+const getPublic = async (userId: string) => {
+  return getOwn(userId);
+};
+
+const remove = async (userId: string, id: string) => {
   const result = await prisma.userSkill.deleteMany({
     where: {
       id,
@@ -139,7 +143,8 @@ const deleteSkill = async (userId: string, id: string) => {
 };
 
 export const SkillService = {
-  addSkill,
-  getMySkills,
-  deleteSkill,
+  add,
+  getOwn,
+  getPublic,
+  delete: remove,
 };

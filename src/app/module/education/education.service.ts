@@ -7,12 +7,12 @@ import {
   compareDateOnly,
   parseDateOnly,
 } from "../../shared/helpers/dateOnly";
-import { EDUCATION_SELECT } from "./profile.constant";
+import { EDUCATION_SELECT } from "./education.constant";
 import {
   TCreateEducationPayload,
   TUpdateEducationPayload,
-} from "./profile.interface";
-import { mapEducation } from "./profile.utils";
+} from "./education.interface";
+import { mapEducation } from "./education.utils";
 
 const normalizeEducationPayload = (
   payload: TCreateEducationPayload | TUpdateEducationPayload,
@@ -61,7 +61,7 @@ const sortEducationRows = <
   });
 };
 
-export const getEducationRows = async (userId: string) => {
+const getEducationRows = async (userId: string) => {
   const rows = await prisma.education.findMany({
     where: {
       userId,
@@ -76,10 +76,7 @@ export const getEducationRows = async (userId: string) => {
   return sortEducationRows(rows);
 };
 
-const createEducation = async (
-  userId: string,
-  payload: TCreateEducationPayload,
-) => {
+const create = async (userId: string, payload: TCreateEducationPayload) => {
   const dateData = normalizeEducationPayload(payload);
 
   const education = await prisma.education.create({
@@ -97,13 +94,17 @@ const createEducation = async (
   return mapEducation(education);
 };
 
-const getMyEducation = async (userId: string) => {
+const getOwn = async (userId: string) => {
   const education = await getEducationRows(userId);
 
   return education.map(mapEducation);
 };
 
-const updateEducation = async (
+const getPublic = async (userId: string) => {
+  return getOwn(userId);
+};
+
+const update = async (
   userId: string,
   id: string,
   payload: TUpdateEducationPayload,
@@ -148,7 +149,7 @@ const updateEducation = async (
   return mapEducation(education);
 };
 
-const deleteEducation = async (userId: string, id: string) => {
+const remove = async (userId: string, id: string) => {
   const result = await prisma.education.deleteMany({
     where: {
       id,
@@ -164,8 +165,9 @@ const deleteEducation = async (userId: string, id: string) => {
 };
 
 export const EducationService = {
-  createEducation,
-  getMyEducation,
-  updateEducation,
-  deleteEducation,
+  create,
+  getOwn,
+  getPublic,
+  update,
+  delete: remove,
 };

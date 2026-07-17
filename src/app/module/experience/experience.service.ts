@@ -6,12 +6,12 @@ import {
   assertNotFutureDate,
   parseDateOnly,
 } from "../../shared/helpers/dateOnly";
+import { EXPERIENCE_SELECT } from "./experience.constant";
 import {
   TCreateExperiencePayload,
   TUpdateExperiencePayload,
-} from "./profile.interface";
-import { EXPERIENCE_SELECT } from "./profile.constant";
-import { mapExperience } from "./profile.utils";
+} from "./experience.interface";
+import { mapExperience } from "./experience.utils";
 
 const normalizeExperiencePayload = (
   payload: TCreateExperiencePayload | TUpdateExperiencePayload,
@@ -71,7 +71,7 @@ const experienceOrderBy = [
   { startDate: "desc" as const },
 ];
 
-export const getExperienceRows = async (userId: string) => {
+const getExperienceRows = async (userId: string) => {
   return prisma.experience.findMany({
     where: {
       userId,
@@ -81,10 +81,7 @@ export const getExperienceRows = async (userId: string) => {
   });
 };
 
-const createExperience = async (
-  userId: string,
-  payload: TCreateExperiencePayload,
-) => {
+const create = async (userId: string, payload: TCreateExperiencePayload) => {
   const dateData = normalizeExperiencePayload(payload);
 
   const experience = await prisma.experience.create({
@@ -102,13 +99,17 @@ const createExperience = async (
   return mapExperience(experience);
 };
 
-const getMyExperiences = async (userId: string) => {
+const getOwn = async (userId: string) => {
   const experiences = await getExperienceRows(userId);
 
   return experiences.map(mapExperience);
 };
 
-const updateExperience = async (
+const getPublic = async (userId: string) => {
+  return getOwn(userId);
+};
+
+const update = async (
   userId: string,
   id: string,
   payload: TUpdateExperiencePayload,
@@ -150,7 +151,7 @@ const updateExperience = async (
   return mapExperience(experience);
 };
 
-const deleteExperience = async (userId: string, id: string) => {
+const remove = async (userId: string, id: string) => {
   const result = await prisma.experience.deleteMany({
     where: {
       id,
@@ -166,8 +167,9 @@ const deleteExperience = async (userId: string, id: string) => {
 };
 
 export const ExperienceService = {
-  createExperience,
-  getMyExperiences,
-  updateExperience,
-  deleteExperience,
+  create,
+  getOwn,
+  getPublic,
+  update,
+  delete: remove,
 };

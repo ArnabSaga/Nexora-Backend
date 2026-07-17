@@ -129,19 +129,121 @@ export const profileCoverStorage = new CloudinaryStorage({
   },
 });
 
-const getPublicIdFromUrl = (fileUrl: string) => {
+const CLOUDINARY_DELIVERY_HOST = "res.cloudinary.com";
+const CLOUDINARY_VERSION_SEGMENT_PATTERN = /^v\d+$/;
+const CLOUDINARY_SIGNATURE_SEGMENT_PATTERN = /^s--[^/]+--$/;
+const CLOUDINARY_TRANSFORMATION_SEGMENT_PATTERN =
+  /^(?:a|ar|b|bo|c|co|cs|d|dl|dn|dpr|e|f|fl|fn|g|h|l|o|p|pg|q|r|so|sp|t|u|vc|vs|w|x|y|z)_[^/]+$/i;
+
+const decodeCloudinaryPathSegment = (segment: string) => {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
+};
+
+const isUnsafePublicIdSegment = (segment: string) => {
+  return (
+    !segment ||
+    !segment.trim() ||
+    segment === "." ||
+    segment === ".." ||
+    segment.includes("\\") ||
+    segment.includes("\0") ||
+    segment.includes("?") ||
+    segment.includes("#")
+  );
+};
+
+const isTransformationOrSignatureSegment = (segment: string) => {
+  return (
+    segment.includes(",") ||
+    CLOUDINARY_SIGNATURE_SEGMENT_PATTERN.test(segment) ||
+    CLOUDINARY_TRANSFORMATION_SEGMENT_PATTERN.test(segment)
+  );
+};
+
+const stripFinalFilenameExtension = (segment: string) => {
+  const extensionIndex = segment.lastIndexOf(".");
+
+  if (extensionIndex <= 0) {
+    return segment;
+  }
+
+  return segment.slice(0, extensionIndex);
+};
+
+const validatePublicIdSegments = (segments: string[]) => {
+  if (!segments.length) {
+    return false;
+  }
+
+  return segments.every((segment) => !isUnsafePublicIdSegment(segment));
+};
+
+export const getPublicIdFromUrl = (fileUrl: string) => {
   try {
     const url = new URL(fileUrl);
-    const uploadMarker = "/upload/";
-    const markerIndex = url.pathname.indexOf(uploadMarker);
 
-    if (markerIndex === -1) return null;
+    if (
+      url.protocol !== "https:" ||
+      url.hostname.toLowerCase() !== CLOUDINARY_DELIVERY_HOST
+    ) {
+      return null;
+    }
 
-    let publicPath = url.pathname.slice(markerIndex + uploadMarker.length);
-    publicPath = publicPath.replace(/^v\d+\//, "");
-    publicPath = publicPath.replace(/\.[^/.]+$/, "");
+    const rawPathSegments = url.pathname.split("/").filter(Boolean);
+    const cloudName = decodeCloudinaryPathSegment(rawPathSegments[0] ?? "");
 
-    return publicPath || null;
+    if (
+      cloudName !== envVars.CLOUDINARY.CLOUDINARY_CLOUD_NAME ||
+      rawPathSegments[1] !== "image" ||
+      rawPathSegments[2] !== "upload"
+    ) {
+      return null;
+    }
+
+    const decodedAssetSegments = rawPathSegments
+      .slice(3)
+      .map(decodeCloudinaryPathSegment);
+
+    if (decodedAssetSegments.some((segment) => segment === null)) {
+      return null;
+    }
+
+    const assetSegments = decodedAssetSegments as string[];
+    const versionIndex = assetSegments.findIndex((segment) =>
+      CLOUDINARY_VERSION_SEGMENT_PATTERN.test(segment),
+    );
+    const publicIdSegments =
+      versionIndex >= 0 ? assetSegments.slice(versionIndex + 1) : assetSegments;
+
+    if (
+      versionIndex === -1 &&
+      assetSegments.some(isTransformationOrSignatureSegment)
+    ) {
+      return null;
+    }
+
+    if (!validatePublicIdSegments(publicIdSegments)) {
+      return null;
+    }
+
+    const finalSegment = publicIdSegments[publicIdSegments.length - 1];
+    const finalSegmentWithoutExtension = stripFinalFilenameExtension(
+      finalSegment,
+    );
+    const sanitizedPublicIdSegments = [
+      ...publicIdSegments.slice(0, -1),
+      finalSegmentWithoutExtension,
+    ];
+
+    if (!validatePublicIdSegments(sanitizedPublicIdSegments)) {
+      return null;
+    }
+
+    return sanitizedPublicIdSegments.join("/");
   } catch {
     return null;
   }

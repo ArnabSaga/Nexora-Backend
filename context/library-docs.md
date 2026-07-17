@@ -401,6 +401,18 @@ export async function uploadToCloudinary(filePath: string, folder: string) {
 |---|---|
 | Avatar | `nexora/avatars` |
 | Cover Photo | `nexora/covers` |
+
+Nexora backend pattern:
+
+- Profile avatar and cover uploads use Cloudinary multer storage.
+- If a database update fails after a Cloudinary upload, delete the newly uploaded asset and rethrow the original database error.
+- If an old avatar/cover deletion fails after a successful update, log a sanitized warning only.
+
+Prisma migration pattern used for skills:
+
+- Add new normalized columns as nullable first.
+- Backfill and deduplicate data before adding `NOT NULL` and unique constraints.
+- Use deterministic canonical-row selection for duplicate groups.
 | Post Media | `nexora/posts` |
 | Community Media | `nexora/communities` |
 

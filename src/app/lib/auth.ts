@@ -1,29 +1,14 @@
-import { APIError, betterAuth } from 'better-auth';
-import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { createAuthMiddleware } from 'better-auth/api';
+import { APIError, betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+import { createAuthMiddleware } from "better-auth/api";
 
-import { envVars } from '../config/env';
-import { prisma } from './prisma';
-import { sendEmail } from '../shared/helpers/emailTemplate';
+import { envVars } from "../config/env";
+import { prisma } from "./prisma";
+import { sendEmail } from "../shared/helpers/emailTemplate";
+import { createProfileUsernameCandidate } from "../shared/helpers/username";
+import { isUniqueConstraintOn } from "../shared/helpers/prismaUnique";
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
-
-const normalizeUsernameSeed = (value: string) => {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_.]/g, '')
-    .replace(/^[_.]+|[_.]+$/g, '');
-
-  return normalized.length >= 3 ? normalized : 'nexora_user';
-};
-
-const createProfileUsername = (user: { id: string; email: string; name: string }) => {
-  const emailSeed = user.email.split('@')[0] ?? user.name;
-  const suffix = user.id.slice(0, 8).toLowerCase();
-
-  return `${normalizeUsernameSeed(emailSeed)}_${suffix}`;
-};
 
 const sendSecurityEmail = async (options: {
   email: string;
@@ -39,23 +24,60 @@ const sendSecurityEmail = async (options: {
   await sendEmail({
     to: options.email,
     subject: options.subject,
-    templateName: 'otp',
+    templateName: "otp",
     templateData: {
-      name: options.name?.trim() || 'there',
+      name: options.name?.trim() || "there",
       title: options.title,
       message: options.message,
       actionUrl: options.actionUrl,
       actionLabel: options.actionLabel,
       code: options.code,
       expiryMinutes: options.expiryMinutes ?? 10,
-      appName: 'Nexora',
+      appName: "Nexora",
     },
     text:
       `${options.title}\n\n${options.message}` +
-      (options.actionUrl ? `\n\n${options.actionLabel || 'Continue'}: ${options.actionUrl}` : '') +
-      (options.code ? `\n\nCode: ${options.code}` : '') +
+      (options.actionUrl
+        ? `\n\n${options.actionLabel || "Continue"}: ${options.actionUrl}`
+        : "") +
+      (options.code ? `\n\nCode: ${options.code}` : "") +
       `\n\nThis request expires in ${options.expiryMinutes ?? 10} minutes.`,
   });
+};
+
+const createInitialProfile = async (user: {
+  id: string;
+  email: string;
+  name: string;
+}) => {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await prisma.profile.create({
+        data: {
+          username: createProfileUsernameCandidate(user, attempt),
+          user: {
+            connect: {
+              id: user.id,
+            },
+          },
+        },
+      });
+
+      return;
+    } catch (error) {
+      if (isUniqueConstraintOn(error, ["userId"])) {
+        return;
+      }
+
+      if (isUniqueConstraintOn(error, ["username"])) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw new Error("Could not create a unique profile username.");
 };
 
 export const auth = betterAuth({
@@ -64,7 +86,7 @@ export const auth = betterAuth({
   basePath: envVars.BETTER_AUTH_BASE_PATH,
   trustedOrigins: [envVars.FRONTEND_URL, envVars.BETTER_AUTH_URL],
   database: prismaAdapter(prisma, {
-    provider: 'postgresql',
+    provider: "postgresql",
   }),
   ...(envVars.OAUTH?.GOOGLE && {
     socialProviders: {
@@ -77,8 +99,8 @@ export const auth = betterAuth({
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (
-        (ctx.path === '/sign-in/email' || ctx.path === '/sign-up/email') &&
-        typeof ctx.body?.email === 'string'
+        (ctx.path === "/sign-in/email" || ctx.path === "/sign-up/email") &&
+        typeof ctx.body?.email === "string"
       ) {
         ctx.body.email = normalizeEmail(ctx.body.email);
       }
@@ -93,11 +115,11 @@ export const auth = betterAuth({
       await sendSecurityEmail({
         email: user.email,
         name: user.name,
-        subject: 'Reset your Nexora password',
-        title: 'Reset your password',
-        message: 'Use the secure link below to reset your Nexora password.',
+        subject: "Reset your Nexora password",
+        title: "Reset your password",
+        message: "Use the secure link below to reset your Nexora password.",
         actionUrl: url,
-        actionLabel: 'Reset password',
+        actionLabel: "Reset password",
         expiryMinutes: 60,
       });
     },
@@ -109,11 +131,12 @@ export const auth = betterAuth({
       await sendSecurityEmail({
         email: user.email,
         name: user.name,
-        subject: 'Verify your Nexora email',
-        title: 'Verify your email',
-        message: 'Use the secure link below to verify your Nexora email address.',
+        subject: "Verify your Nexora email",
+        title: "Verify your email",
+        message:
+          "Use the secure link below to verify your Nexora email address.",
         actionUrl: url,
-        actionLabel: 'Verify email',
+        actionLabel: "Verify email",
         expiryMinutes: 10,
       });
     },
@@ -121,22 +144,22 @@ export const auth = betterAuth({
   user: {
     additionalFields: {
       role: {
-        type: 'string',
+        type: "string",
         input: false,
-        defaultValue: 'USER',
+        defaultValue: "USER",
       },
       status: {
-        type: 'string',
+        type: "string",
         input: false,
-        defaultValue: 'ACTIVE',
+        defaultValue: "ACTIVE",
       },
       lastLoginAt: {
-        type: 'date',
+        type: "date",
         input: false,
         required: false,
       },
       deletedAt: {
-        type: 'date',
+        type: "date",
         input: false,
         required: false,
         returned: false,
@@ -154,29 +177,16 @@ export const auth = betterAuth({
             data: {
               ...user,
               email: normalizeEmail(user.email),
-              role: 'USER',
-              status: 'ACTIVE',
+              role: "USER",
+              status: "ACTIVE",
             },
           };
         },
         async after(user) {
-          await prisma.profile.upsert({
-            where: {
-              userId: user.id,
-            },
-            create: {
-              username: createProfileUsername({
-                id: user.id,
-                email: user.email,
-                name: user.name,
-              }),
-              user: {
-                connect: {
-                  id: user.id,
-                },
-              },
-            },
-            update: {},
+          await createInitialProfile({
+            id: user.id,
+            email: user.email,
+            name: user.name,
           });
         },
       },
@@ -194,10 +204,10 @@ export const auth = betterAuth({
             },
           });
 
-          if (!user || user.status !== 'ACTIVE' || user.deletedAt) {
-            throw APIError.from('FORBIDDEN', {
-              code: 'ACCOUNT_NOT_ACTIVE',
-              message: 'This account is not active.',
+          if (!user || user.status !== "ACTIVE" || user.deletedAt) {
+            throw APIError.from("FORBIDDEN", {
+              code: "ACCOUNT_NOT_ACTIVE",
+              message: "This account is not active.",
             });
           }
         },

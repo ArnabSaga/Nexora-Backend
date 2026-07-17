@@ -29,6 +29,40 @@ type TBetterAuthEndpoint<T> = (context: {
   asResponse: true;
 }) => Promise<globalThis.Response>;
 
+type TAuthProviderInvocationResult =
+  | { delivered: true }
+  | { delivered: false };
+
+type TAuthProviderFailureCategory =
+  | "CLIENT_ERROR"
+  | "RATE_LIMITED"
+  | "SERVER_ERROR"
+  | "TIMEOUT"
+  | "NETWORK_ERROR"
+  | "MALFORMED_PROVIDER_ERROR"
+  | "UNKNOWN";
+
+type TAuthProviderOperation = "password-reset" | "verification-email";
+
+type TAuthProviderFailureContext = {
+  category: TAuthProviderFailureCategory;
+  statusCode?: number;
+};
+
+type TPasswordResetProviderInput = {
+  headers: Headers;
+  email: string;
+  redirectTo?: string;
+  requestId?: string;
+};
+
+type TVerificationEmailProviderInput = {
+  headers: Headers;
+  email: string;
+  callbackURL?: string;
+  requestId?: string;
+};
+
 const authUserSelect = {
   id: true,
   name: true,
@@ -110,6 +144,246 @@ const callBetterAuth = async <T>(
   } catch (error) {
     return throwBetterAuthError(error);
   }
+};
+
+const getTrustedProviderStatusCode = (statusCode: number) => {
+  if (
+    Number.isInteger(statusCode) &&
+    statusCode >= status.BAD_REQUEST &&
+    statusCode < 600
+  ) {
+    return statusCode;
+  }
+
+  return undefined;
+};
+
+const classifyProviderResponse = (
+  response: globalThis.Response,
+): TAuthProviderFailureContext => {
+  const statusCode = getTrustedProviderStatusCode(response.status);
+
+  if (!statusCode) {
+    return {
+      category: "MALFORMED_PROVIDER_ERROR",
+    };
+  }
+
+  if (statusCode === status.TOO_MANY_REQUESTS) {
+    return {
+      category: "RATE_LIMITED",
+      statusCode,
+    };
+  }
+
+  if (statusCode >= status.INTERNAL_SERVER_ERROR) {
+    return {
+      category: "SERVER_ERROR",
+      statusCode,
+    };
+  }
+
+  return {
+    category: "CLIENT_ERROR",
+    statusCode,
+  };
+};
+
+const classifyProviderThrownError = (
+  error: unknown,
+): TAuthProviderFailureContext => {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return {
+      category: "TIMEOUT",
+    };
+  }
+
+  if (error instanceof TypeError) {
+    return {
+      category: "NETWORK_ERROR",
+    };
+  }
+
+  if (error instanceof Error) {
+    if (error.name === "AbortError" || error.name === "TimeoutError") {
+      return {
+        category: "TIMEOUT",
+      };
+    }
+
+    const code =
+      "code" in error && typeof error.code === "string" ? error.code : "";
+
+    if (["ECONNRESET", "ENOTFOUND", "ETIMEDOUT"].includes(code)) {
+      return {
+        category: code === "ETIMEDOUT" ? "TIMEOUT" : "NETWORK_ERROR",
+      };
+    }
+  }
+
+  return {
+    category: "UNKNOWN",
+  };
+};
+
+const safeLogAuthProviderFailure = (options: {
+  operation: TAuthProviderOperation;
+  provider: "better-auth";
+  category: TAuthProviderFailureCategory;
+  statusCode?: number;
+  requestId?: string;
+}) => {
+  try {
+    console.warn("[Auth provider delivery failed]", {
+      operation: options.operation,
+      provider: options.provider,
+      category: options.category,
+      ...(options.statusCode && { statusCode: options.statusCode }),
+      ...(options.requestId && { requestId: options.requestId }),
+    });
+  } catch {
+    // Logging must never affect account-recovery responses.
+  }
+};
+
+const invokePasswordResetProvider = async (
+  input: TPasswordResetProviderInput,
+): Promise<TAuthProviderInvocationResult> => {
+  try {
+    const response = (await (
+      auth.api.requestPasswordReset as unknown as TBetterAuthEndpoint<{
+        status: boolean;
+        message: string;
+      }>
+    )({
+      headers: input.headers,
+      body: {
+        email: input.email,
+        redirectTo: input.redirectTo,
+      },
+      asResponse: true,
+    })) as unknown;
+
+    if (!(response instanceof globalThis.Response)) {
+      safeLogAuthProviderFailure({
+        operation: "password-reset",
+        provider: "better-auth",
+        category: "MALFORMED_PROVIDER_ERROR",
+        requestId: input.requestId,
+      });
+
+      return { delivered: false };
+    }
+
+    if (response.ok) {
+      return { delivered: true };
+    }
+
+    const context = classifyProviderResponse(response);
+
+    safeLogAuthProviderFailure({
+      operation: "password-reset",
+      provider: "better-auth",
+      category: context.category,
+      statusCode: context.statusCode,
+      requestId: input.requestId,
+    });
+
+    return { delivered: false };
+  } catch (error) {
+    const context = classifyProviderThrownError(error);
+
+    safeLogAuthProviderFailure({
+      operation: "password-reset",
+      provider: "better-auth",
+      category: context.category,
+      statusCode: context.statusCode,
+      requestId: input.requestId,
+    });
+
+    return { delivered: false };
+  }
+};
+
+const invokeVerificationEmailProvider = async (
+  input: TVerificationEmailProviderInput,
+): Promise<TAuthProviderInvocationResult> => {
+  try {
+    const response = (await (
+      auth.api.sendVerificationEmail as unknown as TBetterAuthEndpoint<{
+        status: boolean;
+      }>
+    )({
+      headers: input.headers,
+      body: {
+        email: input.email,
+        callbackURL: input.callbackURL,
+      },
+      asResponse: true,
+    })) as unknown;
+
+    if (!(response instanceof globalThis.Response)) {
+      safeLogAuthProviderFailure({
+        operation: "verification-email",
+        provider: "better-auth",
+        category: "MALFORMED_PROVIDER_ERROR",
+        requestId: input.requestId,
+      });
+
+      return { delivered: false };
+    }
+
+    if (response.ok) {
+      return { delivered: true };
+    }
+
+    const context = classifyProviderResponse(response);
+
+    safeLogAuthProviderFailure({
+      operation: "verification-email",
+      provider: "better-auth",
+      category: context.category,
+      statusCode: context.statusCode,
+      requestId: input.requestId,
+    });
+
+    return { delivered: false };
+  } catch (error) {
+    const context = classifyProviderThrownError(error);
+
+    safeLogAuthProviderFailure({
+      operation: "verification-email",
+      provider: "better-auth",
+      category: context.category,
+      statusCode: context.statusCode,
+      requestId: input.requestId,
+    });
+
+    return { delivered: false };
+  }
+};
+
+const getRecoveryUserByEmail = async (email: string) => {
+  return prisma.user.findUnique({
+    where: {
+      email,
+    },
+    select: {
+      emailVerified: true,
+      status: true,
+      deletedAt: true,
+    },
+  });
+};
+
+const isActiveRecoveryUser = (
+  user: Awaited<ReturnType<typeof getRecoveryUserByEmail>>,
+) => {
+  return Boolean(
+    user &&
+      user.status === UserStatus.ACTIVE &&
+      user.deletedAt === null,
+  );
 };
 
 const getUserByEmailOrThrow = async (email: string) => {
@@ -300,29 +574,21 @@ const forgotPassword = async (
   payload: TForgotPasswordPayload,
   headers: Headers,
 ) => {
-  try {
-    await callBetterAuth<{ status: boolean; message: string }>(
-      auth.api.requestPasswordReset as unknown as TBetterAuthEndpoint<{
-        status: boolean;
-        message: string;
-      }>,
-      {
-        headers,
-        body: {
-          email: normalizeEmail(payload.email),
-          redirectTo: getTrustedCallbackUrl(payload.redirectTo),
-        },
-      },
-    );
-  } catch (error) {
-    if (
-      error instanceof AppError &&
-      (error.statusCode === status.TOO_MANY_REQUESTS ||
-        error.statusCode >= status.INTERNAL_SERVER_ERROR)
-    ) {
-      throw error;
-    }
+  const redirectTo = getTrustedCallbackUrl(payload.redirectTo);
+  const email = normalizeEmail(payload.email);
+  const user = await getRecoveryUserByEmail(email);
+
+  if (!isActiveRecoveryUser(user)) {
+    return {
+      data: genericPasswordResetResponse,
+    };
   }
+
+  await invokePasswordResetProvider({
+    headers,
+    email,
+    redirectTo,
+  });
 
   return {
     data: genericPasswordResetResponse,
@@ -375,51 +641,21 @@ const resendVerificationEmail = async (
   payload: TResendVerificationEmailPayload,
   headers: Headers,
 ) => {
+  const callbackURL = getTrustedCallbackUrl(payload.callbackURL);
   const email = normalizeEmail(payload.email);
-  const user = await prisma.user.findUnique({
-    where: {
-      email,
-    },
-    select: {
-      emailVerified: true,
-      status: true,
-      deletedAt: true,
-    },
-  });
+  const user = await getRecoveryUserByEmail(email);
 
-  if (
-    !user ||
-    user.emailVerified ||
-    user.status === UserStatus.DELETED ||
-    user.deletedAt
-  ) {
+  if (!isActiveRecoveryUser(user) || user?.emailVerified) {
     return {
       data: genericVerificationResponse,
     };
   }
 
-  try {
-    await callBetterAuth<{ status: boolean }>(
-      auth.api.sendVerificationEmail as unknown as TBetterAuthEndpoint<{
-        status: boolean;
-      }>,
-      {
-        headers,
-        body: {
-          email,
-          callbackURL: getTrustedCallbackUrl(payload.callbackURL),
-        },
-      },
-    );
-  } catch (error) {
-    if (
-      error instanceof AppError &&
-      (error.statusCode === status.TOO_MANY_REQUESTS ||
-        error.statusCode >= status.INTERNAL_SERVER_ERROR)
-    ) {
-      throw error;
-    }
-  }
+  await invokeVerificationEmailProvider({
+    headers,
+    email,
+    callbackURL,
+  });
 
   return {
     data: genericVerificationResponse,

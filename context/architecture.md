@@ -626,6 +626,13 @@ Base URL: `/api/v1`
 | GET | `/profile/skills` | Private | none | Own skills |
 | DELETE | `/profile/skills/:id` | Private | id | Delete skill |
 
+Profile implementation notes:
+
+- `/profiles/*` owns identity and media; `/profile/*` owns professional details.
+- Public profile responses hide auth state and use active, non-deleted user visibility.
+- Profile media uploads update Cloudinary-backed avatar/cover fields and clean up failed uploads.
+- Skills use `Skill.normalizedName` for case-insensitive uniqueness while preserving display casing.
+
 ### Post Routes
 
 | Method | Endpoint | Access | Query/Body | Purpose |

@@ -8,5 +8,8 @@ dist
 .vscode/settings.json
 
 GEMINI.md
-.claude
+context
+.agents
 AGENT.md
+skills-lock.json
+

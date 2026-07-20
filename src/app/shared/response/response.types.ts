@@ -5,10 +5,16 @@ export type TMeta = {
   totalPages: number;
 };
 
+export type TCursorMeta = {
+  nextCursor: string | null;
+  hasNextPage: boolean;
+  limit: number;
+};
+
 export type TResponse<T> = {
   statusCode: number;
   success: boolean;
   message: string;
   data?: T;
-  meta?: TMeta;
+  meta?: TMeta | TCursorMeta;
 };

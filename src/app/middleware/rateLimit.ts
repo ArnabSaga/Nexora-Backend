@@ -77,3 +77,9 @@ export const sensitiveAuthRateLimit = createRateLimit({
   message:
     "Too many sensitive authentication requests. Please try again later.",
 });
+
+export const postCreateRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: "Too many post requests. Please try again later.",
+});

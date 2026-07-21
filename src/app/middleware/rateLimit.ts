@@ -83,3 +83,9 @@ export const postCreateRateLimit = createRateLimit({
   max: 30,
   message: "Too many post requests. Please try again later.",
 });
+
+export const commentCreateRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: "Too many comment requests. Please try again later.",
+});

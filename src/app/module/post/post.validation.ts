@@ -2,36 +2,11 @@ import { z } from "zod";
 import { PostType, PostVisibility } from "../../../generated/prisma/client";
 import {
   POST_CONTENT_MAX_LENGTH,
-  POST_DEFAULT_LIMIT,
   POST_MAX_LIMIT,
 } from "./constants/post.constant";
+import { scalarPositiveIntegerQuery } from "../../shared/validation/query.validation";
 
 const cuidSchema = z.string().trim().regex(/^c[a-z0-9]+$/i, "Invalid id");
-
-const scalarQueryNumber = ({
-  min,
-  max,
-  defaultValue,
-}: {
-  min: number;
-  max: number;
-  defaultValue?: number;
-}) =>
-  z.preprocess((value) => {
-    if (value === undefined) {
-      return defaultValue;
-    }
-
-    if (typeof value !== "string" && typeof value !== "number") {
-      return value;
-    }
-
-    if (typeof value === "string" && value.trim() === "") {
-      return value;
-    }
-
-    return Number(value);
-  }, z.number().int().min(min).max(max));
 
 const contentSchema = z
   .string()
@@ -131,18 +106,20 @@ const repost = z
 
 const offsetQuery = z
   .object({
-    page: scalarQueryNumber({ min: 1, max: Number.MAX_SAFE_INTEGER }).optional(),
-    limit: scalarQueryNumber({ min: 1, max: POST_MAX_LIMIT }).optional(),
+    page: scalarPositiveIntegerQuery({
+      min: 1,
+      max: Number.MAX_SAFE_INTEGER,
+    }).optional(),
+    limit: scalarPositiveIntegerQuery({ min: 1, max: POST_MAX_LIMIT }).optional(),
   })
   .strict();
 
 const feedQuery = z
   .object({
     cursor: z.string().trim().min(1).optional(),
-    limit: scalarQueryNumber({
+    limit: scalarPositiveIntegerQuery({
       min: 1,
       max: POST_MAX_LIMIT,
-      defaultValue: POST_DEFAULT_LIMIT,
     }).optional(),
   })
   .strict();

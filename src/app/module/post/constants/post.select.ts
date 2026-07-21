@@ -1,4 +1,5 @@
-import { Prisma } from "../../../../generated/prisma/client";
+import type { Prisma } from "../../../../generated/prisma/client";
+import { DISPLAYABLE_POST_COMMENT_WHERE } from "../../../shared/policies/comment.policy";
 
 const AUTHOR = {
   id: true,
@@ -57,7 +58,10 @@ const MENTION = {
 } satisfies Prisma.PostMentionSelect;
 
 const COUNT = {
-  comments: true,
+  // Normal-display count: eligible top-level comments and eligible direct replies.
+  comments: {
+    where: DISPLAYABLE_POST_COMMENT_WHERE,
+  },
   reactions: true,
   votes: true,
   reposts: true,

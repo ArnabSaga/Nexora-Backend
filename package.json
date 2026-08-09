@@ -8,6 +8,10 @@
     "start": "node dist/server.js",
     "build": "tsup src/server.ts --format esm --clean",
     "dev": "tsx watch src/server.ts",
+    "test": "pnpm test:unit && pnpm test:integration",
+    "test:unit": "tsx --test tests/unit/config/env.test.ts tests/unit/middleware/rateLimit.test.ts tests/unit/support/database/test-database-safety.test.ts tests/unit/modules/reaction/reaction.validation.test.ts",
+    "test:integration": "tsx tests/runners/integration.runner.ts tests/integration",
+    "test:reaction:integration": "tsx tests/runners/integration.runner.ts tests/integration/modules/reaction",
     "migrate": "prisma migrate dev",
     "generate": "prisma generate",
     "studio": "prisma studio"

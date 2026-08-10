@@ -1,6 +1,7 @@
 import status from "http-status";
 import { CLOUDINARY_FOLDER } from "../shared/constants/upload.constant";
 import AppError from "../shared/errors/AppError";
+import { resolveTrustProxyHops } from "./env.utils";
 
 type NodeEnv = "development" | "production" | "test";
 
@@ -10,6 +11,7 @@ type EnvVars = {
   IS_PROD: boolean;
   IS_TEST: boolean;
   PORT: number;
+  TRUST_PROXY_HOPS: number;
   DATABASE_URL: string;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
@@ -144,6 +146,10 @@ const assertOptionalGroup = (groupName: string, keys: string[]) => {
 
 const envVariables = (): EnvVars => {
   const NODE_ENV = getNodeEnv();
+  const TRUST_PROXY_HOPS = resolveTrustProxyHops(
+    NODE_ENV,
+    getOptionalEnv("TRUST_PROXY_HOPS"),
+  );
   const mailKeys = [
     "MAIL_SMTP_USER",
     "MAIL_SMTP_PASS",
@@ -170,6 +176,7 @@ const envVariables = (): EnvVars => {
     IS_PROD: NODE_ENV === "production",
     IS_TEST: NODE_ENV === "test",
     PORT: getNumberEnv("PORT"),
+    TRUST_PROXY_HOPS,
     DATABASE_URL: getRequiredEnv("DATABASE_URL"),
     BETTER_AUTH_SECRET: getRequiredEnv("BETTER_AUTH_SECRET"),
     BETTER_AUTH_URL: getOriginEnv("BETTER_AUTH_URL"),

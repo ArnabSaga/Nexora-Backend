@@ -1,4 +1,4 @@
-import { RequestHandler } from "express";
+import type { Request, RequestHandler } from "express";
 import status from "http-status";
 import AppError from "../shared/errors/AppError";
 
@@ -6,41 +6,63 @@ type TRateLimitOptions = {
   windowMs: number;
   max: number;
   message?: string;
+  keyGenerator?: (req: Request) => string;
 };
 
-type TRateLimitEntry = {
+export type TRateLimitEntry = {
   count: number;
   resetAt: number;
 };
 
-const stores = new Map<string, Map<string, TRateLimitEntry>>();
+const MAX_SWEEP_INTERVAL_MS = 60 * 1000;
 
 const getClientKey = (req: Parameters<RequestHandler>[0]) => {
-  const forwardedFor = req.headers["x-forwarded-for"];
+  const resolvedIp = req.ip || req.socket.remoteAddress || "unknown";
 
-  if (typeof forwardedFor === "string" && forwardedFor.trim()) {
-    return forwardedFor.split(",")[0].trim();
+  return `ip:${resolvedIp}`;
+};
+
+export const sweepExpiredRateLimitEntries = (
+  store: Map<string, TRateLimitEntry>,
+  now: number,
+) => {
+  for (const [key, entry] of store) {
+    if (entry.resetAt <= now) {
+      store.delete(key);
+    }
   }
-
-  return req.ip || req.socket.remoteAddress || "unknown";
 };
 
 export const createRateLimit = ({
   windowMs,
   max,
   message = "Too many requests. Please try again later.",
+  keyGenerator,
 }: TRateLimitOptions): RequestHandler => {
-  const storeKey = `${windowMs}:${max}:${message}`;
-
-  if (!stores.has(storeKey)) {
-    stores.set(storeKey, new Map<string, TRateLimitEntry>());
-  }
-
-  const store = stores.get(storeKey)!;
+  const store = new Map<string, TRateLimitEntry>();
+  const sweepIntervalMs = Math.min(windowMs, MAX_SWEEP_INTERVAL_MS);
+  let lastSweepAt = Date.now();
 
   return (req, res, next) => {
     const now = Date.now();
-    const key = getClientKey(req);
+
+    if (now - lastSweepAt >= sweepIntervalMs) {
+      sweepExpiredRateLimitEntries(store, now);
+      lastSweepAt = now;
+    }
+
+    const key = keyGenerator ? keyGenerator(req) : getClientKey(req);
+
+    if (typeof key !== "string" || !key.trim()) {
+      next(
+        new AppError(
+          status.INTERNAL_SERVER_ERROR,
+          "Rate limit key generator returned an invalid key",
+        ),
+      );
+      return;
+    }
+
     const existing = store.get(key);
 
     if (!existing || existing.resetAt <= now) {
@@ -76,4 +98,36 @@ export const sensitiveAuthRateLimit = createRateLimit({
   max: 5,
   message:
     "Too many sensitive authentication requests. Please try again later.",
+});
+
+export const postCreateRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: "Too many post requests. Please try again later.",
+});
+
+export const commentCreateRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: "Too many comment requests. Please try again later.",
+});
+
+export const reactionMutationRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: "Too many reaction requests. Please try again later.",
+  // Reaction routes are authenticated; IP is only a defensive fallback if
+  // middleware ordering is accidentally changed.
+  keyGenerator: (req) =>
+    req.user?.id ? `user:${req.user.id}` : getClientKey(req),
+});
+
+export const voteMutationRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: "Too many vote requests. Please try again later.",
+  // Vote routes are authenticated; IP is only a defensive fallback if
+  // middleware ordering is accidentally changed.
+  keyGenerator: (req) =>
+    req.user?.id ? `user:${req.user.id}` : getClientKey(req),
 });

@@ -11,7 +11,7 @@ import router from "./app/router/index";
 const app: Application = express();
 const authHandler = toNodeHandler(auth);
 
-app.set("trust proxy", 1);
+app.set("trust proxy", envVars.TRUST_PROXY_HOPS);
 
 //* Better Auth
 app.use(

@@ -11,6 +11,8 @@ import { CommentReactionRoutes } from "../module/reaction/comment-reaction.route
 import { PostReactionRoutes } from "../module/reaction/post-reaction.route";
 import { SkillRoutes } from "../module/skill/skill.route";
 import { UserRoutes } from "../module/user/user.route";
+import { CommentVoteRoutes } from "../module/vote/comment-vote.route";
+import { PostVoteRoutes } from "../module/vote/post-vote.route";
 
 const router = Router();
 
@@ -22,9 +24,11 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/profile/education", route: EducationRoutes },
   { path: "/profile/skills", route: SkillRoutes },
   { path: "/posts", route: PostReactionRoutes },
+  { path: "/posts", route: PostVoteRoutes },
   { path: "/posts", route: PostCommentRoutes },
   { path: "/posts", route: PostRoutes },
   { path: "/comments", route: CommentReactionRoutes },
+  { path: "/comments", route: CommentVoteRoutes },
   { path: "/comments", route: CommentRoutes },
 ];
 

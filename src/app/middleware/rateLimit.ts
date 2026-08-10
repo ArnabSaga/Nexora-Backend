@@ -121,3 +121,13 @@ export const reactionMutationRateLimit = createRateLimit({
   keyGenerator: (req) =>
     req.user?.id ? `user:${req.user.id}` : getClientKey(req),
 });
+
+export const voteMutationRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: "Too many vote requests. Please try again later.",
+  // Vote routes are authenticated; IP is only a defensive fallback if
+  // middleware ordering is accidentally changed.
+  keyGenerator: (req) =>
+    req.user?.id ? `user:${req.user.id}` : getClientKey(req),
+});

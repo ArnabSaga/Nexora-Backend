@@ -119,9 +119,6 @@ const FEED = {
   mentions: {
     select: MENTION,
   },
-  repostOf: {
-    select: ORIGINAL_POST,
-  },
   _count: {
     select: COUNT,
   },
@@ -141,4 +138,8 @@ export const PostSelect = {
 
 export type TPostPayload = Prisma.PostGetPayload<{
   select: typeof PostSelect.FEED;
+}>;
+
+export type TOriginalPostPayload = Prisma.PostGetPayload<{
+  select: typeof PostSelect.ORIGINAL_POST;
 }>;

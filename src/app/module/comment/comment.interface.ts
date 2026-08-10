@@ -1,4 +1,5 @@
 import { TMeta } from "../../shared/response/response.types";
+import type { VoteType } from "../../../generated/prisma/client";
 
 export type TCommentPayload = {
   content: string;
@@ -28,6 +29,10 @@ export type TCommentReplyResponse = {
   counts: {
     reactions: number;
     votes: number;
+    voteScore: number;
+  };
+  viewerState: {
+    vote: VoteType | null;
   };
 };
 
@@ -43,6 +48,10 @@ export type TCommentResponse = {
     replies: number;
     reactions: number;
     votes: number;
+    voteScore: number;
+  };
+  viewerState: {
+    vote: VoteType | null;
   };
   replies: TCommentReplyResponse[];
 };

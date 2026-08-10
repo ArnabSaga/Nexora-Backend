@@ -23,9 +23,20 @@ import { PostSelect } from "../constants/post.select";
 import {
   isRepostVisibilityAllowed,
   isRepostVisibilityNarrowEnough,
-  mapPost,
   normalizePostContent,
 } from "../utils/post.utils";
+import {
+  createPrismaPostResponseService,
+  PostResponseService,
+} from "./post-response.service";
+
+type TPostMutationBindings = {
+  createPostResponseService: typeof createPrismaPostResponseService;
+  mediaService: Pick<
+    typeof PostMediaService,
+    "validateFiles" | "uploadFiles" | "safeCleanupUploadedMedia"
+  >;
+};
 
 const validateAuthorCanPostInCommunity = async (
   authorId: string,
@@ -89,7 +100,9 @@ const createMediaRows = (
   }));
 };
 
-const validateMentionsBeforeUpload = async (mentionedUserIds: string[] = []) => {
+const validateMentionsBeforeUpload = async (
+  mentionedUserIds: string[] = [],
+) => {
   const uniqueIds = MentionService.dedupeMentionedUserIds(mentionedUserIds);
 
   if (!uniqueIds.length) {
@@ -110,18 +123,22 @@ const validateMentionsBeforeUpload = async (mentionedUserIds: string[] = []) => 
   });
 
   if (users.length !== uniqueIds.length) {
-    throw new AppError(status.BAD_REQUEST, "One or more mentioned users are invalid");
+    throw new AppError(
+      status.BAD_REQUEST,
+      "One or more mentioned users are invalid",
+    );
   }
 
   return uniqueIds;
 };
 
-const create = async (
+const createMutation = async (
   author: Express.AuthenticatedUser,
   payload: TCreatePostInput,
   files: Express.Multer.File[] = [],
+  bindings: TPostMutationBindings,
 ) => {
-  PostMediaService.validateFiles(files);
+  bindings.mediaService.validateFiles(files);
 
   const content = normalizePostContent(payload.content);
   const postType = payload.postType ?? PostType.SHORT;
@@ -138,10 +155,10 @@ const create = async (
 
   await validateAuthorCanPostInCommunity(author.id, payload.communityId);
 
-  const uploadedMedia = await PostMediaService.uploadFiles(files);
+  const uploadedMedia = await bindings.mediaService.uploadFiles(files);
 
   try {
-    const post = await prisma.$transaction(async (tx) => {
+    const response = await prisma.$transaction(async (tx) => {
       const createdPost = await tx.post.create({
         data: {
           authorId: author.id,
@@ -159,19 +176,27 @@ const create = async (
       });
 
       await HashtagService.syncPostHashtags(tx, createdPost.id, content);
-      await MentionService.syncPostMentions(tx, createdPost.id, mentionedUserIds);
+      await MentionService.syncPostMentions(
+        tx,
+        createdPost.id,
+        mentionedUserIds,
+      );
 
-      return tx.post.findUniqueOrThrow({
+      const post = await tx.post.findUniqueOrThrow({
         where: {
           id: createdPost.id,
         },
         select: PostSelect.FEED,
       });
+
+      return bindings
+        .createPostResponseService(tx)
+        .enrichPost(post, author);
     });
 
-    return mapPost(post);
+    return response;
   } catch (error) {
-    await PostMediaService.safeCleanupUploadedMedia(
+    await bindings.mediaService.safeCleanupUploadedMedia(
       uploadedMedia,
       "create-post-transaction-failed",
     );
@@ -192,13 +217,14 @@ const getById = async (id: string, viewer?: Express.AuthenticatedUser) => {
     throw new AppError(status.NOT_FOUND, "Post not found");
   }
 
-  return mapPost(post);
+  return PostResponseService.enrichPost(post, viewer);
 };
 
-const update = async (
+const updateMutation = async (
   id: string,
   author: Express.AuthenticatedUser,
   payload: TUpdatePostInput,
+  bindings: TPostMutationBindings,
 ) => {
   const existing = await prisma.post.findFirst({
     where: {
@@ -234,11 +260,14 @@ const update = async (
     });
 
     if (mediaCount === 0) {
-      throw new AppError(status.BAD_REQUEST, "Post content or media is required");
+      throw new AppError(
+        status.BAD_REQUEST,
+        "Post content or media is required",
+      );
     }
   }
 
-  const post = await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     await tx.post.update({
       where: {
         id,
@@ -254,20 +283,23 @@ const update = async (
       await HashtagService.syncPostHashtags(tx, id, content);
     }
 
-    return tx.post.findUniqueOrThrow({
+    const post = await tx.post.findUniqueOrThrow({
       where: {
         id,
       },
       select: PostSelect.FEED,
     });
-  });
 
-  return mapPost(post);
+    return bindings
+      .createPostResponseService(tx)
+      .enrichPost(post, author);
+  });
 };
 
 const remove = async (id: string, requester: Express.AuthenticatedUser) => {
   const isAdmin =
-    requester.role === UserRole.ADMIN || requester.role === UserRole.SUPER_ADMIN;
+    requester.role === UserRole.ADMIN ||
+    requester.role === UserRole.SUPER_ADMIN;
 
   const post = isAdmin
     ? await prisma.post.findUnique({
@@ -329,10 +361,11 @@ const assertRepostSourceCanBeReposted = (source: {
   }
 };
 
-const repost = async (
+const repostMutation = async (
   sourcePostId: string,
   author: Express.AuthenticatedUser,
   payload: TCreateRepostInput,
+  bindings: TPostMutationBindings,
 ) => {
   const sourcePost = await prisma.post.findFirst({
     where: {
@@ -373,7 +406,7 @@ const repost = async (
 
   const content = normalizePostContent(payload.content);
 
-  const post = await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
     const createdPost = await tx.post.create({
       data: {
         authorId: author.id,
@@ -389,21 +422,48 @@ const repost = async (
 
     await HashtagService.syncPostHashtags(tx, createdPost.id, content);
 
-    return tx.post.findUniqueOrThrow({
+    const post = await tx.post.findUniqueOrThrow({
       where: {
         id: createdPost.id,
       },
       select: PostSelect.FEED,
     });
-  });
 
-  return mapPost(post);
+    return bindings
+      .createPostResponseService(tx)
+      .enrichPost(post, author);
+  });
 };
 
+export const createPostMutationService = (
+  bindings: TPostMutationBindings,
+) => ({
+  create: (
+    author: Express.AuthenticatedUser,
+    payload: TCreatePostInput,
+    files: Express.Multer.File[] = [],
+  ) => createMutation(author, payload, files, bindings),
+  update: (
+    id: string,
+    author: Express.AuthenticatedUser,
+    payload: TUpdatePostInput,
+  ) => updateMutation(id, author, payload, bindings),
+  repost: (
+    sourcePostId: string,
+    author: Express.AuthenticatedUser,
+    payload: TCreateRepostInput,
+  ) => repostMutation(sourcePostId, author, payload, bindings),
+});
+
+const PostMutationService = createPostMutationService({
+  createPostResponseService: createPrismaPostResponseService,
+  mediaService: PostMediaService,
+});
+
 export const PostService = {
-  create,
+  create: PostMutationService.create,
   getById,
-  update,
+  update: PostMutationService.update,
   delete: remove,
-  repost,
+  repost: PostMutationService.repost,
 };

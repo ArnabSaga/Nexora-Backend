@@ -1,7 +1,9 @@
 import type {
+  CommunityVisibility,
   MediaType,
   PostType,
   PostVisibility,
+  VoteType,
 } from "../../../generated/prisma/client";
 
 export type TCreatePostInput = {
@@ -59,4 +61,81 @@ export type TPostMentionResponse = {
     username: string;
     avatar: string | null;
   };
+};
+
+export type TPostAuthorResponse = {
+  id: string;
+  name: string;
+  username: string | null;
+  headline: string | null;
+  avatar: string | null;
+};
+
+export type TPostMediaResponse = {
+  id: string;
+  url: string;
+  mediaType: MediaType;
+};
+
+export type TPostHashtagResponse = {
+  id: string;
+  name: string;
+};
+
+export type TPostCountsResponse = {
+  commentsCount: number;
+  reactionsCount: number;
+  votesCount: number;
+  voteScore: number;
+  repostsCount: number;
+  bookmarksCount: number;
+};
+
+export type TPostViewerState = {
+  vote: VoteType | null;
+};
+
+export type TUnavailableOriginalPost = {
+  id: string;
+  unavailable: true;
+};
+
+export type TAvailableOriginalPost = {
+  id: string;
+  content: string;
+  postType: PostType;
+  visibility: PostVisibility;
+  createdAt: Date;
+  author: TPostAuthorResponse;
+  media: TPostMediaResponse[];
+  hashtags: TPostHashtagResponse[];
+  counts: TPostCountsResponse;
+  viewerState: TPostViewerState;
+};
+
+export type TOriginalPostResponse =
+  | TAvailableOriginalPost
+  | TUnavailableOriginalPost;
+
+export type TPostResponse = {
+  id: string;
+  content: string;
+  postType: PostType;
+  visibility: PostVisibility;
+  isEdited: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  author: TPostAuthorResponse;
+  community: {
+    id: string;
+    name: string;
+    slug: string;
+    visibility: CommunityVisibility;
+  } | null;
+  media: TPostMediaResponse[];
+  hashtags: TPostHashtagResponse[];
+  mentions: TPostMentionResponse[];
+  counts: TPostCountsResponse;
+  viewerState: TPostViewerState;
+  originalPost: TOriginalPostResponse | null;
 };

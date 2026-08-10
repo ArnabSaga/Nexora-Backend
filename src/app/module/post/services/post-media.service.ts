@@ -9,8 +9,35 @@ import {
   POST_MEDIA_MAX_FILES,
   POST_MEDIA_MAX_TOTAL_SIZE,
 } from "../constants/post.constant";
-import { TUploadedPostMedia } from "../post.interface";
 import { getMediaTypeFromMime } from "../utils/post.utils";
+import { createPostMediaCleanupService } from "./post-media-cleanup.factory";
+import { createPostMediaUploadService } from "./post-media-upload.factory";
+
+const PostMediaCleanupService = createPostMediaCleanupService({
+  destroy: (item) =>
+    cloudinary.uploader.destroy(item.publicId, {
+      invalidate: true,
+      resource_type: item.resourceType,
+    }),
+});
+
+const PostMediaUploadService = createPostMediaUploadService({
+  uploadOne: async (file) => {
+    const options: UploadApiOptions = {
+      folder: envVars.CLOUDINARY.POST_MEDIA_FOLDER,
+      resource_type: "auto",
+    };
+    const result = await uploadBufferToCloudinary(file.buffer, options);
+
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      resourceType: result.resource_type,
+      mediaType: getMediaTypeFromMime(file.mimetype),
+    };
+  },
+  safeCleanupUploadedMedia: PostMediaCleanupService.safeCleanupUploadedMedia,
+});
 
 const isJpeg = (buffer: Buffer) =>
   buffer.length >= 3 &&
@@ -80,62 +107,9 @@ const validateFiles = (files: Express.Multer.File[] = []) => {
   });
 };
 
-const uploadFiles = async (files: Express.Multer.File[] = []) => {
-  const uploaded: TUploadedPostMedia[] = [];
-
-  try {
-    for (const file of files) {
-      const options: UploadApiOptions = {
-        folder: envVars.CLOUDINARY.POST_MEDIA_FOLDER,
-        resource_type: "auto",
-      };
-
-      const result = await uploadBufferToCloudinary(file.buffer, options);
-
-      uploaded.push({
-        url: result.secure_url,
-        publicId: result.public_id,
-        resourceType: result.resource_type,
-        mediaType: getMediaTypeFromMime(file.mimetype),
-      });
-    }
-
-    return uploaded;
-  } catch (error) {
-    await cleanupUploadedMedia(uploaded);
-    throw error;
-  }
-};
-
-const cleanupUploadedMedia = async (media: TUploadedPostMedia[]) => {
-  await Promise.allSettled(
-    media.map((item) =>
-      cloudinary.uploader.destroy(item.publicId, {
-        invalidate: true,
-        resource_type: item.resourceType,
-      }),
-    ),
-  );
-};
-
-const safeCleanupUploadedMedia = async (
-  media: TUploadedPostMedia[],
-  operation: string,
-) => {
-  try {
-    await cleanupUploadedMedia(media);
-  } catch (error) {
-    console.warn("Cloudinary post media cleanup failed", {
-      operation,
-      publicIds: media.map((item) => item.publicId),
-      message: error instanceof Error ? error.message : "Unknown cleanup error",
-    });
-  }
-};
-
 export const PostMediaService = {
   validateFiles,
-  uploadFiles,
-  cleanupUploadedMedia,
-  safeCleanupUploadedMedia,
+  uploadFiles: PostMediaUploadService.uploadFiles,
+  cleanupUploadedMedia: PostMediaCleanupService.cleanupUploadedMedia,
+  safeCleanupUploadedMedia: PostMediaCleanupService.safeCleanupUploadedMedia,
 };

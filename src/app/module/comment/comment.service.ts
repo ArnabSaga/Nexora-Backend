@@ -19,9 +19,34 @@ import {
   TCommentPayload,
 } from "./comment.interface";
 import { CommentSelect } from "./comment.select";
-import { mapComment, mapCommentReply } from "./comment.utils";
+import {
+  collectCommentVoteTargetIds,
+  mapComment,
+  mapCommentReply,
+  mergeCommentActionVoteState,
+  mergeCommentVoteStates,
+} from "./comment.utils";
+import type { TVoteReadService } from "../vote/vote-read.factory";
+import {
+  createPrismaVoteReadService,
+} from "../vote/vote-read.prisma.factory";
+import { VoteReadService } from "../vote/vote-read.service";
+import type { TCommentActionResponse } from "./comment.interface";
 
 type TPrismaTransaction = Prisma.TransactionClient;
+
+const enrichCommentActionVoteState = async (
+  comment: TCommentActionResponse,
+  viewerId: string,
+  voteReadService: TVoteReadService = VoteReadService,
+) => {
+  const voteStates = await voteReadService.getCommentVoteStates(
+    [comment.id],
+    viewerId,
+  );
+
+  return mergeCommentActionVoteState(comment, voteStates);
+};
 
 const ensureVisiblePost = async (
   postId: string,
@@ -44,29 +69,41 @@ const ensureVisiblePost = async (
   return post;
 };
 
-const createComment = async (
+type TCommentMutationBindings = {
+  createVoteReadService: typeof createPrismaVoteReadService;
+};
+
+const createCommentMutation = async (
   postId: string,
   requester: Express.AuthenticatedUser,
   payload: TCommentPayload,
+  bindings: TCommentMutationBindings,
 ) => {
   await ensureVisiblePost(postId, requester);
 
-  const comment = await prisma.comment.create({
-    data: {
-      postId,
-      authorId: requester.id,
-      content: payload.content,
-    },
-    select: CommentSelect.PUBLIC,
-  });
+  return prisma.$transaction(async (tx) => {
+    const comment = await tx.comment.create({
+      data: {
+        postId,
+        authorId: requester.id,
+        content: payload.content,
+      },
+      select: CommentSelect.PUBLIC,
+    });
 
-  return mapComment(comment);
+    return enrichCommentActionVoteState(
+      mapComment(comment),
+      requester.id,
+      bindings.createVoteReadService(tx),
+    );
+  });
 };
 
-const createReply = async (
+const createReplyMutation = async (
   commentId: string,
   requester: Express.AuthenticatedUser,
   payload: TCommentPayload,
+  bindings: TCommentMutationBindings,
 ) => {
   const parentComment = await prisma.comment.findFirst({
     where: {
@@ -94,17 +131,23 @@ const createReply = async (
     );
   }
 
-  const reply = await prisma.comment.create({
-    data: {
-      postId: parentComment.postId,
-      authorId: requester.id,
-      parentCommentId: parentComment.id,
-      content: payload.content,
-    },
-    select: CommentSelect.REPLY,
-  });
+  return prisma.$transaction(async (tx) => {
+    const reply = await tx.comment.create({
+      data: {
+        postId: parentComment.postId,
+        authorId: requester.id,
+        parentCommentId: parentComment.id,
+        content: payload.content,
+      },
+      select: CommentSelect.REPLY,
+    });
 
-  return mapCommentReply(reply);
+    return enrichCommentActionVoteState(
+      mapCommentReply(reply),
+      requester.id,
+      bindings.createVoteReadService(tx),
+    );
+  });
 };
 
 const getPostComments = async (
@@ -147,8 +190,14 @@ const getPostComments = async (
     }),
   ]);
 
+  const mappedComments = comments.map(mapComment);
+  const voteStates = await VoteReadService.getCommentVoteStates(
+    collectCommentVoteTargetIds(mappedComments),
+    viewer?.id,
+  );
+
   return {
-    data: comments.map(mapComment),
+    data: mergeCommentVoteStates(mappedComments, voteStates),
     meta: {
       page: pagination.page,
       limit: pagination.limit,
@@ -158,10 +207,11 @@ const getPostComments = async (
   };
 };
 
-const updateComment = async (
+const updateCommentMutation = async (
   id: string,
   requester: Express.AuthenticatedUser,
   payload: TCommentPayload,
+  bindings: TCommentMutationBindings,
 ) => {
   const existing = await prisma.comment.findFirst({
     where: {
@@ -181,18 +231,28 @@ const updateComment = async (
     throw new AppError(status.NOT_FOUND, "Comment not found");
   }
 
-  const comment = await prisma.comment.update({
-    where: {
-      id: existing.id,
-    },
-    data: {
-      content: payload.content,
-      isEdited: true,
-    },
-    select: CommentSelect.PUBLIC,
-  });
+  return prisma.$transaction(async (tx) => {
+    const comment = await tx.comment.update({
+      where: {
+        id: existing.id,
+      },
+      data: {
+        content: payload.content,
+        isEdited: true,
+      },
+      select: CommentSelect.PUBLIC,
+    });
 
-  return comment.parentCommentId ? mapCommentReply(comment) : mapComment(comment);
+    const mappedComment = comment.parentCommentId
+      ? mapCommentReply(comment)
+      : mapComment(comment);
+
+    return enrichCommentActionVoteState(
+      mappedComment,
+      requester.id,
+      bindings.createVoteReadService(tx),
+    );
+  });
 };
 
 const resolveAdminDeleteAuthority = async (
@@ -322,10 +382,34 @@ const deleteComment = async (
   return null;
 };
 
+export const createCommentMutationService = (
+  bindings: TCommentMutationBindings,
+) => ({
+  createComment: (
+    postId: string,
+    requester: Express.AuthenticatedUser,
+    payload: TCommentPayload,
+  ) => createCommentMutation(postId, requester, payload, bindings),
+  createReply: (
+    commentId: string,
+    requester: Express.AuthenticatedUser,
+    payload: TCommentPayload,
+  ) => createReplyMutation(commentId, requester, payload, bindings),
+  updateComment: (
+    id: string,
+    requester: Express.AuthenticatedUser,
+    payload: TCommentPayload,
+  ) => updateCommentMutation(id, requester, payload, bindings),
+});
+
+const CommentMutationService = createCommentMutationService({
+  createVoteReadService: createPrismaVoteReadService,
+});
+
 export const CommentService = {
-  createComment,
-  createReply,
+  createComment: CommentMutationService.createComment,
+  createReply: CommentMutationService.createReply,
   getPostComments,
-  updateComment,
+  updateComment: CommentMutationService.updateComment,
   deleteComment,
 };

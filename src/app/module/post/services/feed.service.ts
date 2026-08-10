@@ -2,15 +2,12 @@ import { Prisma } from "../../../../generated/prisma/client";
 import { prisma } from "../../../lib/prisma";
 import { PUBLIC_PROFILE_POST_WHERE } from "../../../shared/constants/post.constant";
 import { paginationHelper } from "../../../shared/helpers/paginationHelper";
-import {
-  POST_DEFAULT_LIMIT,
-  POST_MAX_LIMIT,
-} from "../constants/post.constant";
+import { POST_DEFAULT_LIMIT, POST_MAX_LIMIT } from "../constants/post.constant";
 import { decodePostCursor, encodePostCursor } from "../utils/cursor.utils";
 import { TPostFeedQuery, TPostListQuery } from "../post.interface";
 import { PostSelect } from "../constants/post.select";
-import { mapPost } from "../utils/post.utils";
 import { PostVisibilityService } from "./post-visibility.service";
+import { PostResponseService } from "./post-response.service";
 
 const getCursorWhere = (cursor?: string): Prisma.PostWhereInput => {
   const decoded = decodePostCursor(cursor);
@@ -41,6 +38,7 @@ const getCursorWhere = (cursor?: string): Prisma.PostWhereInput => {
 const getCursorFeed = async (
   where: Prisma.PostWhereInput,
   query: TPostFeedQuery,
+  viewer?: Express.AuthenticatedUser,
 ) => {
   const limit = Math.min(query.limit ?? POST_DEFAULT_LIMIT, POST_MAX_LIMIT);
 
@@ -65,7 +63,7 @@ const getCursorFeed = async (
   const last = data[data.length - 1];
 
   return {
-    data: data.map(mapPost),
+    data: await PostResponseService.enrichPosts(data, viewer),
     meta: {
       nextCursor: last
         ? encodePostCursor({
@@ -82,6 +80,7 @@ const getCursorFeed = async (
 const getOffsetList = async (
   where: Prisma.PostWhereInput,
   query: TPostListQuery,
+  viewer?: Express.AuthenticatedUser,
 ) => {
   const pagination = paginationHelper.calculatePagination(query, {
     defaultLimit: POST_DEFAULT_LIMIT,
@@ -111,7 +110,7 @@ const getOffsetList = async (
   ]);
 
   return {
-    data: data.map(mapPost),
+    data: await PostResponseService.enrichPosts(data, viewer),
     meta: {
       page: pagination.page,
       limit: pagination.limit,
@@ -132,6 +131,7 @@ const getPersonalizedFeed = async (
   return getCursorFeed(
     PostVisibilityService.buildVisiblePostWhere(viewer),
     query,
+    viewer,
   );
 };
 
@@ -149,6 +149,7 @@ const getMyPosts = async (
       isDeleted: false,
     },
     query,
+    viewer,
   );
 };
 
@@ -179,6 +180,7 @@ const getCommunityPosts = async (
       ...PostVisibilityService.buildVisiblePostWhere(viewer),
     },
     query,
+    viewer,
   );
 };
 

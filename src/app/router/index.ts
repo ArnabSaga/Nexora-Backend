@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { AuthRoutes } from "../module/auth/auth.route";
 import { CommentRoutes } from "../module/comment/comment.route";
+import { CommunityRoutes } from "../module/community/community.route";
 import { PostCommentRoutes } from "../module/comment/post-comment.route";
 import { EducationRoutes } from "../module/education/education.route";
 import { ExperienceRoutes } from "../module/experience/experience.route";
@@ -32,6 +33,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/comments", route: CommentReactionRoutes },
   { path: "/comments", route: CommentVoteRoutes },
   { path: "/comments", route: CommentRoutes },
+  { path: "/communities", route: CommunityRoutes },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

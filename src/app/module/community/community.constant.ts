@@ -1,0 +1,10 @@
+export const COMMUNITY_DEFAULT_PAGE = 1;
+export const COMMUNITY_DEFAULT_LIMIT = 10;
+export const COMMUNITY_MAX_PAGE = 10_000;
+export const COMMUNITY_MAX_LIMIT = 100;
+
+export const COMMUNITY_PAGINATION_CONFIG = {
+  defaultPage: COMMUNITY_DEFAULT_PAGE,
+  defaultLimit: COMMUNITY_DEFAULT_LIMIT,
+  maxLimit: COMMUNITY_MAX_LIMIT,
+} as const;

@@ -2,12 +2,10 @@ import status from "http-status";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
 import { DISPLAYABLE_POST_COMMENT_WHERE } from "../../shared/policies/comment.policy";
+import { buildAvailableParticipationWhere } from "../../shared/policies/community.policy";
 import { PostVisibilityService } from "../post/services/post-visibility.service";
 import { REACTION_RESPONSE_SELECT } from "./reaction.constant";
-import type {
-  TReactionPayload,
-  TReactionResponse,
-} from "./reaction.interface";
+import type { TReactionPayload, TReactionResponse } from "./reaction.interface";
 
 const savePostReaction = async (
   postId: string,
@@ -17,7 +15,19 @@ const savePostReaction = async (
   const post = await prisma.post.findFirst({
     where: {
       id: postId,
-      ...PostVisibilityService.buildVisiblePostWhere(requester),
+      AND: [
+        PostVisibilityService.buildVisiblePostWhere(requester),
+        {
+          OR: [
+            { communityId: null },
+            {
+              community: {
+                is: buildAvailableParticipationWhere(requester.id),
+              },
+            },
+          ],
+        },
+      ],
     },
     select: {
       id: true,
@@ -69,7 +79,21 @@ const saveCommentReaction = async (
       id: commentId,
       ...DISPLAYABLE_POST_COMMENT_WHERE,
       post: {
-        is: PostVisibilityService.buildVisiblePostWhere(requester),
+        is: {
+          AND: [
+            PostVisibilityService.buildVisiblePostWhere(requester),
+            {
+              OR: [
+                { communityId: null },
+                {
+                  community: {
+                    is: buildAvailableParticipationWhere(requester.id),
+                  },
+                },
+              ],
+            },
+          ],
+        },
       },
     },
     select: {

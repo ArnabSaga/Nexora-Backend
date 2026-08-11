@@ -27,17 +27,6 @@ const paginationQuery = z.object({
   sortOrder: z.enum(["asc", "desc"]).optional(),
 });
 
-const publicPaginationQuery = z
-  .object({
-    page: queryNumber(1).optional(),
-    limit: queryNumber(1, 100).optional(),
-  })
-  .strict();
-
-const userIdParam = z.object({
-  userId: cuidSchema,
-});
-
 const idParam = z.object({
   id: cuidSchema,
 });
@@ -48,8 +37,6 @@ const listUsersQuery = paginationQuery.extend({
   status: z.enum(UserStatus).optional(),
 });
 
-const publicListQuery = publicPaginationQuery;
-
 const updateRole = z.object({
   role: z.enum(UserRole),
 });
@@ -59,10 +46,8 @@ const updateStatus = z.object({
 });
 
 export const UserValidation = {
-  userIdParam,
   idParam,
   listUsersQuery,
-  publicListQuery,
   updateRole,
   updateStatus,
 };

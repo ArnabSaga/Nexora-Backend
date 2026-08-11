@@ -2,9 +2,12 @@ import { Router } from "express";
 
 import { AuthRoutes } from "../module/auth/auth.route";
 import { CommentRoutes } from "../module/comment/comment.route";
+import { CommunityMemberRoutes } from "../module/community-member/community-member.route";
+import { CommunityRoutes } from "../module/community/community.route";
 import { PostCommentRoutes } from "../module/comment/post-comment.route";
 import { EducationRoutes } from "../module/education/education.route";
 import { ExperienceRoutes } from "../module/experience/experience.route";
+import { FollowRoutes } from "../module/follow/follow.route";
 import { PostRoutes } from "../module/post/post.route";
 import { ProfileIdentityRoutes } from "../module/profile/profile.route";
 import { CommentReactionRoutes } from "../module/reaction/comment-reaction.route";
@@ -18,6 +21,7 @@ const router = Router();
 
 const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/auth", route: AuthRoutes },
+  { path: "/users", route: FollowRoutes },
   { path: "/users", route: UserRoutes },
   { path: "/profiles", route: ProfileIdentityRoutes },
   { path: "/profile/experience", route: ExperienceRoutes },
@@ -30,6 +34,8 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/comments", route: CommentReactionRoutes },
   { path: "/comments", route: CommentVoteRoutes },
   { path: "/comments", route: CommentRoutes },
+  { path: "/communities", route: CommunityMemberRoutes },
+  { path: "/communities", route: CommunityRoutes },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

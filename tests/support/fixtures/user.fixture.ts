@@ -7,6 +7,8 @@ type TCreateTestUserInput = {
   runId: string;
   label: string;
   status?: UserStatus;
+  deletedAt?: Date | null;
+  createdAt?: Date;
 };
 
 export const createTestUser = async ({
@@ -14,12 +16,16 @@ export const createTestUser = async ({
   runId,
   label,
   status = UserStatus.ACTIVE,
+  deletedAt,
+  createdAt,
 }: TCreateTestUserInput) => {
   const user = await prisma.user.create({
     data: {
       name: `Test ${label}`,
       email: `${runId}-${label}@example.test`,
       status,
+      deletedAt,
+      createdAt,
     },
   });
 

@@ -1,5 +1,5 @@
-import { Prisma } from "../../../generated/prisma/client";
-import { PUBLIC_USER_COUNT_SELECT } from "../user/user.constant";
+import type { Prisma } from "../../../generated/prisma/client";
+import { PUBLIC_USER_COUNT_SELECT } from "../../shared/policies/user.policy";
 
 export const PROFILE_CORE_SELECT = {
   id: true,

@@ -1,23 +1,16 @@
 import status from "http-status";
-import {
-  CommunityMemberRole,
-  CommunityMemberStatus,
-  Prisma,
-  UserRole,
-} from "../../../generated/prisma/client";
+import { Prisma, UserRole } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
 import { paginationHelper } from "../../shared/helpers/paginationHelper";
 import { ELIGIBLE_COMMENT_WHERE } from "../../shared/policies/comment.policy";
+import {
+  buildAvailableParticipationWhere,
+  buildCommunityModerationWhere,
+} from "../../shared/policies/community.policy";
 import { PostVisibilityService } from "../post/services/post-visibility.service";
-import {
-  COMMENT_DEFAULT_LIMIT,
-  COMMENT_MAX_LIMIT,
-} from "./comment.constant";
-import {
-  TCommentListQuery,
-  TCommentPayload,
-} from "./comment.interface";
+import { COMMENT_DEFAULT_LIMIT, COMMENT_MAX_LIMIT } from "./comment.constant";
+import { TCommentListQuery, TCommentPayload } from "./comment.interface";
 import { CommentSelect } from "./comment.select";
 import {
   collectCommentVoteTargetIds,
@@ -27,9 +20,7 @@ import {
   mergeCommentVoteStates,
 } from "./comment.utils";
 import type { TVoteReadService } from "../vote/vote-read.factory";
-import {
-  createPrismaVoteReadService,
-} from "../vote/vote-read.prisma.factory";
+import { createPrismaVoteReadService } from "../vote/vote-read.prisma.factory";
 import { VoteReadService } from "../vote/vote-read.service";
 import type { TCommentActionResponse } from "./comment.interface";
 
@@ -69,6 +60,41 @@ const ensureVisiblePost = async (
   return post;
 };
 
+const buildParticipatingPostWhere = (
+  requester: Express.AuthenticatedUser,
+): Prisma.PostWhereInput => ({
+  AND: [
+    PostVisibilityService.buildVisiblePostWhere(requester),
+    {
+      OR: [
+        { communityId: null },
+        {
+          community: {
+            is: buildAvailableParticipationWhere(requester.id),
+          },
+        },
+      ],
+    },
+  ],
+});
+
+const ensureParticipatingPost = async (
+  postId: string,
+  requester: Express.AuthenticatedUser,
+) => {
+  const post = await prisma.post.findFirst({
+    where: {
+      id: postId,
+      ...buildParticipatingPostWhere(requester),
+    },
+    select: { id: true },
+  });
+
+  if (!post) {
+    throw new AppError(status.NOT_FOUND, "Post not found");
+  }
+};
+
 type TCommentMutationBindings = {
   createVoteReadService: typeof createPrismaVoteReadService;
 };
@@ -79,7 +105,7 @@ const createCommentMutation = async (
   payload: TCommentPayload,
   bindings: TCommentMutationBindings,
 ) => {
-  await ensureVisiblePost(postId, requester);
+  await ensureParticipatingPost(postId, requester);
 
   return prisma.$transaction(async (tx) => {
     const comment = await tx.comment.create({
@@ -110,7 +136,7 @@ const createReplyMutation = async (
       id: commentId,
       ...ELIGIBLE_COMMENT_WHERE,
       post: {
-        is: PostVisibilityService.buildVisiblePostWhere(requester),
+        is: buildParticipatingPostWhere(requester),
       },
     },
     select: {
@@ -219,7 +245,7 @@ const updateCommentMutation = async (
       authorId: requester.id,
       isDeleted: false,
       post: {
-        is: PostVisibilityService.buildVisiblePostWhere(requester),
+        is: buildParticipatingPostWhere(requester),
       },
     },
     select: {
@@ -304,29 +330,7 @@ const resolveCommunityDeleteAuthority = async (
       post: {
         is: {
           community: {
-            is: {
-              isSuspended: false,
-              OR: [
-                {
-                  ownerId: requester.id,
-                },
-                {
-                  members: {
-                    some: {
-                      userId: requester.id,
-                      status: CommunityMemberStatus.ACTIVE,
-                      role: {
-                        in: [
-                          CommunityMemberRole.OWNER,
-                          CommunityMemberRole.ADMIN,
-                          CommunityMemberRole.MODERATOR,
-                        ],
-                      },
-                    },
-                  },
-                },
-              ],
-            },
+            is: buildCommunityModerationWhere(requester.id),
           },
         },
       },
@@ -342,13 +346,21 @@ const resolveDeleteAuthority = async (
   commentId: string,
   requester: Express.AuthenticatedUser,
 ) => {
-  const adminComment = await resolveAdminDeleteAuthority(tx, commentId, requester);
+  const adminComment = await resolveAdminDeleteAuthority(
+    tx,
+    commentId,
+    requester,
+  );
 
   if (adminComment) {
     return adminComment;
   }
 
-  const ownerComment = await resolveOwnerDeleteAuthority(tx, commentId, requester);
+  const ownerComment = await resolveOwnerDeleteAuthority(
+    tx,
+    commentId,
+    requester,
+  );
 
   if (ownerComment) {
     return ownerComment;

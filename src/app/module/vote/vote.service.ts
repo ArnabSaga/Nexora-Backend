@@ -2,6 +2,7 @@ import status from "http-status";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
 import { DISPLAYABLE_POST_COMMENT_WHERE } from "../../shared/policies/comment.policy";
+import { buildAvailableParticipationWhere } from "../../shared/policies/community.policy";
 import { PostVisibilityService } from "../post/services/post-visibility.service";
 import { VOTE_RESPONSE_SELECT } from "./vote.constant";
 import type {
@@ -24,7 +25,19 @@ const savePostVoteMutation = async (
   const post = await prisma.post.findFirst({
     where: {
       id: postId,
-      ...PostVisibilityService.buildVisiblePostWhere(requester),
+      AND: [
+        PostVisibilityService.buildVisiblePostWhere(requester),
+        {
+          OR: [
+            { communityId: null },
+            {
+              community: {
+                is: buildAvailableParticipationWhere(requester.id),
+              },
+            },
+          ],
+        },
+      ],
     },
     select: {
       id: true,
@@ -94,7 +107,21 @@ const saveCommentVoteMutation = async (
       id: commentId,
       ...DISPLAYABLE_POST_COMMENT_WHERE,
       post: {
-        is: PostVisibilityService.buildVisiblePostWhere(requester),
+        is: {
+          AND: [
+            PostVisibilityService.buildVisiblePostWhere(requester),
+            {
+              OR: [
+                { communityId: null },
+                {
+                  community: {
+                    is: buildAvailableParticipationWhere(requester.id),
+                  },
+                },
+              ],
+            },
+          ],
+        },
       },
     },
     select: {
@@ -154,9 +181,7 @@ const removeCommentVote = async (
   });
 };
 
-export const createVoteMutationService = (
-  bindings: TVoteMutationBindings,
-) => ({
+export const createVoteMutationService = (bindings: TVoteMutationBindings) => ({
   savePostVote: (
     postId: string,
     requester: Express.AuthenticatedUser,

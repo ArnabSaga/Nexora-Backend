@@ -1,4 +1,5 @@
-import { Prisma, UserStatus } from "../../../generated/prisma/client";
+import type { Prisma } from "../../../generated/prisma/client";
+import { PUBLIC_USER_COUNT_SELECT } from "../../shared/policies/user.policy";
 import { IQueryConfig } from "../../shared/types/query.types";
 
 export const USER_SEARCHABLE_FIELDS = [
@@ -16,28 +17,6 @@ export const USER_SORTABLE_FIELDS = [
   "name",
   "email",
 ] as const;
-
-export const ACTIVE_PUBLIC_USER_WHERE = {
-  status: UserStatus.ACTIVE,
-  deletedAt: null,
-} satisfies Prisma.UserWhereInput;
-
-export const PUBLIC_USER_COUNT_SELECT = {
-  followers: {
-    where: {
-      follower: {
-        is: ACTIVE_PUBLIC_USER_WHERE,
-      },
-    },
-  },
-  following: {
-    where: {
-      following: {
-        is: ACTIVE_PUBLIC_USER_WHERE,
-      },
-    },
-  },
-} satisfies Prisma.UserCountOutputTypeSelect;
 
 export const DEFAULT_USER_SELECT = {
   id: true,

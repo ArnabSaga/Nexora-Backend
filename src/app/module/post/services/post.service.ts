@@ -1,6 +1,5 @@
 import status from "http-status";
 import {
-  CommunityMemberStatus,
   CommunityVisibility,
   PostType,
   PostVisibility,
@@ -9,6 +8,10 @@ import {
 } from "../../../../generated/prisma/client";
 import { prisma } from "../../../lib/prisma";
 import AppError from "../../../shared/errors/AppError";
+import {
+  buildAvailableParticipationWhere,
+  buildCommunityModerationWhere,
+} from "../../../shared/policies/community.policy";
 import { HashtagService } from "./hashtag.service";
 import { MentionService } from "./mention.service";
 import { PostMediaService } from "./post-media.service";
@@ -46,33 +49,18 @@ const validateAuthorCanPostInCommunity = async (
     return null;
   }
 
-  const community = await prisma.community.findUnique({
+  const community = await prisma.community.findFirst({
     where: {
       id: communityId,
+      ...buildAvailableParticipationWhere(authorId),
     },
     select: {
       id: true,
-      ownerId: true,
-      isSuspended: true,
-      members: {
-        where: {
-          userId: authorId,
-          status: CommunityMemberStatus.ACTIVE,
-        },
-        select: {
-          id: true,
-        },
-        take: 1,
-      },
     },
   });
 
-  if (!community || community.isSuspended) {
+  if (!community) {
     throw new AppError(status.NOT_FOUND, "Community not found");
-  }
-
-  if (community.ownerId !== authorId && community.members.length === 0) {
-    throw new AppError(status.FORBIDDEN, "You cannot post in this community");
   }
 
   return community;
@@ -189,9 +177,7 @@ const createMutation = async (
         select: PostSelect.FEED,
       });
 
-      return bindings
-        .createPostResponseService(tx)
-        .enrichPost(post, author);
+      return bindings.createPostResponseService(tx).enrichPost(post, author);
     });
 
     return response;
@@ -252,6 +238,11 @@ const updateMutation = async (
 
   ensureValidWriteVisibility(visibility, existing.communityId);
 
+  await validateAuthorCanPostInCommunity(
+    author.id,
+    existing.communityId ?? undefined,
+  );
+
   if (!content) {
     const mediaCount = await prisma.postMedia.count({
       where: {
@@ -290,41 +281,36 @@ const updateMutation = async (
       select: PostSelect.FEED,
     });
 
-    return bindings
-      .createPostResponseService(tx)
-      .enrichPost(post, author);
+    return bindings.createPostResponseService(tx).enrichPost(post, author);
   });
 };
 
 const remove = async (id: string, requester: Express.AuthenticatedUser) => {
-  const isAdmin =
-    requester.role === UserRole.ADMIN ||
-    requester.role === UserRole.SUPER_ADMIN;
-
-  const post = isAdmin
-    ? await prisma.post.findUnique({
-        where: {
-          id,
-        },
-        select: {
-          id: true,
-        },
-      })
-    : await prisma.post.findFirst({
-        where: {
-          id,
-          authorId: requester.id,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-  if (!post) {
-    throw new AppError(status.NOT_FOUND, "Post not found");
-  }
-
   await prisma.$transaction(async (tx) => {
+    const isAdmin =
+      requester.role === UserRole.ADMIN ||
+      requester.role === UserRole.SUPER_ADMIN;
+    const post = await tx.post.findFirst({
+      where: isAdmin
+        ? { id }
+        : {
+            id,
+            OR: [
+              { authorId: requester.id },
+              {
+                community: {
+                  is: buildCommunityModerationWhere(requester.id),
+                },
+              },
+            ],
+          },
+      select: { id: true },
+    });
+
+    if (!post) {
+      throw new AppError(status.NOT_FOUND, "Post not found");
+    }
+
     const result = await tx.post.updateMany({
       where: {
         id: post.id,
@@ -353,10 +339,7 @@ const assertRepostSourceCanBeReposted = (source: {
     throw new AppError(status.FORBIDDEN, "This post cannot be reposted");
   }
 
-  if (
-    source.community &&
-    source.community.visibility !== CommunityVisibility.PUBLIC
-  ) {
+  if (source.community?.visibility === CommunityVisibility.PRIVATE) {
     throw new AppError(status.FORBIDDEN, "This post cannot be reposted");
   }
 };
@@ -378,6 +361,7 @@ const repostMutation = async (
       visibility: true,
       community: {
         select: {
+          id: true,
           visibility: true,
         },
       },
@@ -389,6 +373,23 @@ const repostMutation = async (
   }
 
   assertRepostSourceCanBeReposted(sourcePost);
+
+  if (sourcePost.community) {
+    const participatingCommunity = await prisma.community.findFirst({
+      where: {
+        id: sourcePost.community.id,
+        ...buildAvailableParticipationWhere(author.id),
+      },
+      select: { id: true },
+    });
+
+    if (!participatingCommunity) {
+      throw new AppError(
+        status.FORBIDDEN,
+        "You cannot repost this community post",
+      );
+    }
+  }
 
   const originalId = sourcePost.repostId ?? sourcePost.id;
   const visibility = payload.visibility ?? PostVisibility.PUBLIC;
@@ -429,15 +430,11 @@ const repostMutation = async (
       select: PostSelect.FEED,
     });
 
-    return bindings
-      .createPostResponseService(tx)
-      .enrichPost(post, author);
+    return bindings.createPostResponseService(tx).enrichPost(post, author);
   });
 };
 
-export const createPostMutationService = (
-  bindings: TPostMutationBindings,
-) => ({
+export const createPostMutationService = (bindings: TPostMutationBindings) => ({
   create: (
     author: Express.AuthenticatedUser,
     payload: TCreatePostInput,

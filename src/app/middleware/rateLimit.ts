@@ -131,3 +131,23 @@ export const voteMutationRateLimit = createRateLimit({
   keyGenerator: (req) =>
     req.user?.id ? `user:${req.user.id}` : getClientKey(req),
 });
+
+export const followMutationRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: "Too many follow requests. Please try again later.",
+  // Follow routes are authenticated; IP is only a defensive fallback if
+  // middleware ordering is accidentally changed.
+  keyGenerator: (req) =>
+    req.user?.id ? `user:${req.user.id}` : getClientKey(req),
+});
+
+export const communityMutationRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: "Too many community requests. Please try again later.",
+  // Community routes are authenticated; IP is only a defensive fallback if
+  // middleware ordering is accidentally changed.
+  keyGenerator: (req) =>
+    req.user?.id ? `user:${req.user.id}` : getClientKey(req),
+});

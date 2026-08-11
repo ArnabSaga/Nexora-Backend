@@ -1,16 +1,38 @@
 import status from "http-status";
-import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
 import { paginationHelper } from "../../shared/helpers/paginationHelper";
-import { ACTIVE_PUBLIC_USER_WHERE, DEFAULT_USER_SELECT } from "./user.constant";
+import { isUniqueConstraintOn } from "../../shared/helpers/prismaUnique";
+import { ACTIVE_PUBLIC_USER_WHERE } from "../../shared/policies/user.policy";
+import { DEFAULT_USER_SELECT } from "../user/user.constant";
+import { mapPublicUser } from "../user/user.utils";
 import {
+  FOLLOW_DEFAULT_PAGE,
+  FOLLOW_MAX_PAGE,
+  FOLLOW_PAGINATION_CONFIG,
+} from "./follow.constant";
+import type {
   TFollowActionResult,
-  TPaginatedResult,
-  TPublicUser,
-  TUserListQuery,
-} from "./user.interface";
-import { mapPublicUser } from "./user.utils";
+  TFollowListQuery,
+  TFollowListResult,
+} from "./follow.interface";
+
+const calculateFollowPagination = (query: TFollowListQuery) => {
+  const page = query.page ?? FOLLOW_DEFAULT_PAGE;
+
+  if (
+    !Number.isSafeInteger(page) ||
+    page < FOLLOW_DEFAULT_PAGE ||
+    page > FOLLOW_MAX_PAGE
+  ) {
+    throw new AppError(
+      status.BAD_REQUEST,
+      `Page must be between ${FOLLOW_DEFAULT_PAGE} and ${FOLLOW_MAX_PAGE}`,
+    );
+  }
+
+  return paginationHelper.calculatePagination(query, FOLLOW_PAGINATION_CONFIG);
+};
 
 const getActiveUserOrThrow = async (id: string) => {
   const user = await prisma.user.findFirst({
@@ -30,40 +52,6 @@ const getActiveUserOrThrow = async (id: string) => {
   return user;
 };
 
-const alreadyFollowingResponse = (): TFollowActionResult => ({
-  statusCode: status.OK,
-  message: "Already following",
-  data: {
-    following: true,
-  },
-});
-
-const isFollowUniqueConstraintTarget = (target: unknown): boolean => {
-  const includesFollowFields = (value: string) => {
-    return value.includes("followerId") && value.includes("followingId");
-  };
-
-  if (Array.isArray(target)) {
-    return target.includes("followerId") && target.includes("followingId");
-  }
-
-  if (typeof target === "string") {
-    return includesFollowFields(target);
-  }
-
-  return false;
-};
-
-const isFollowUniqueConstraintError = (
-  error: unknown,
-): error is Prisma.PrismaClientKnownRequestError => {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2002" &&
-    isFollowUniqueConstraintTarget(error.meta?.target)
-  );
-};
-
 const followUser = async (
   targetUserId: string,
   requester: Express.AuthenticatedUser,
@@ -74,19 +62,6 @@ const followUser = async (
 
   await getActiveUserOrThrow(targetUserId);
 
-  const existingFollow = await prisma.follow.findUnique({
-    where: {
-      followerId_followingId: {
-        followerId: requester.id,
-        followingId: targetUserId,
-      },
-    },
-  });
-
-  if (existingFollow) {
-    return alreadyFollowingResponse();
-  }
-
   try {
     await prisma.follow.create({
       data: {
@@ -95,8 +70,14 @@ const followUser = async (
       },
     });
   } catch (error) {
-    if (isFollowUniqueConstraintError(error)) {
-      return alreadyFollowingResponse();
+    if (isUniqueConstraintOn(error, ["followerId", "followingId"])) {
+      return {
+        statusCode: status.OK,
+        message: "Already following",
+        data: {
+          following: true,
+        },
+      };
     }
 
     throw error;
@@ -119,22 +100,12 @@ const unfollowUser = async (
     throw new AppError(status.BAD_REQUEST, "You cannot unfollow yourself");
   }
 
-  const result = await prisma.follow.deleteMany({
+  await prisma.follow.deleteMany({
     where: {
       followerId: requester.id,
       followingId: targetUserId,
     },
   });
-
-  if (result.count === 0) {
-    return {
-      statusCode: status.OK,
-      message: "User is not currently followed",
-      data: {
-        following: false,
-      },
-    };
-  }
 
   return {
     statusCode: status.OK,
@@ -147,27 +118,19 @@ const unfollowUser = async (
 
 const getFollowers = async (
   userId: string,
-  query: TUserListQuery,
-): Promise<TPaginatedResult<TPublicUser>> => {
+  query: TFollowListQuery,
+): Promise<TFollowListResult> => {
   await getActiveUserOrThrow(userId);
 
-  const pagination = paginationHelper.calculatePagination(query, {
-    defaultSortBy: "createdAt",
-    defaultSortOrder: "desc",
-    maxLimit: 100,
-  });
-
+  const pagination = calculateFollowPagination(query);
   const where = {
     followingId: userId,
     follower: {
       is: ACTIVE_PUBLIC_USER_WHERE,
     },
   };
-
   const [total, follows] = await Promise.all([
-    prisma.follow.count({
-      where,
-    }),
+    prisma.follow.count({ where }),
     prisma.follow.findMany({
       where,
       skip: pagination.skip,
@@ -196,27 +159,19 @@ const getFollowers = async (
 
 const getFollowing = async (
   userId: string,
-  query: TUserListQuery,
-): Promise<TPaginatedResult<TPublicUser>> => {
+  query: TFollowListQuery,
+): Promise<TFollowListResult> => {
   await getActiveUserOrThrow(userId);
 
-  const pagination = paginationHelper.calculatePagination(query, {
-    defaultSortBy: "createdAt",
-    defaultSortOrder: "desc",
-    maxLimit: 100,
-  });
-
+  const pagination = calculateFollowPagination(query);
   const where = {
     followerId: userId,
     following: {
       is: ACTIVE_PUBLIC_USER_WHERE,
     },
   };
-
   const [total, follows] = await Promise.all([
-    prisma.follow.count({
-      where,
-    }),
+    prisma.follow.count({ where }),
     prisma.follow.findMany({
       where,
       skip: pagination.skip,
@@ -245,14 +200,9 @@ const getFollowing = async (
 
 const getSuggestions = async (
   requester: Express.AuthenticatedUser,
-  query: TUserListQuery,
-): Promise<TPaginatedResult<TPublicUser>> => {
-  const pagination = paginationHelper.calculatePagination(query, {
-    defaultSortBy: "createdAt",
-    defaultSortOrder: "desc",
-    maxLimit: 100,
-  });
-
+  query: TFollowListQuery,
+): Promise<TFollowListResult> => {
+  const pagination = calculateFollowPagination(query);
   const where = {
     ...ACTIVE_PUBLIC_USER_WHERE,
     id: {
@@ -267,11 +217,8 @@ const getSuggestions = async (
       isNot: null,
     },
   };
-
   const [total, users] = await Promise.all([
-    prisma.user.count({
-      where,
-    }),
+    prisma.user.count({ where }),
     prisma.user.findMany({
       where,
       skip: pagination.skip,

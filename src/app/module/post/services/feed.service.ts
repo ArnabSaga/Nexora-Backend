@@ -145,8 +145,12 @@ const getMyPosts = async (
 ) => {
   return getOffsetList(
     {
-      authorId: viewer.id,
-      isDeleted: false,
+      AND: [
+        {
+          authorId: viewer.id,
+        },
+        PostVisibilityService.buildVisiblePostWhere(viewer),
+      ],
     },
     query,
     viewer,

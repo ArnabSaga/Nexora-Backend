@@ -1,10 +1,12 @@
 import {
-  CommunityMemberStatus,
-  CommunityVisibility,
   PostVisibility,
   Prisma,
   UserStatus,
 } from "../../../../generated/prisma/client";
+import {
+  buildAvailableParticipationWhere,
+  buildReadableCommunityWhere,
+} from "../../../shared/policies/community.policy";
 
 type TViewer = Express.AuthenticatedUser | undefined;
 
@@ -13,46 +15,9 @@ const activeAuthorWhere = {
   deletedAt: null,
 } satisfies Prisma.UserWhereInput;
 
-const activeMemberAccessWhere = (viewerId: string): Prisma.CommunityWhereInput => ({
-  isSuspended: false,
-  OR: [
-    {
-      ownerId: viewerId,
-    },
-    {
-      members: {
-        some: {
-          userId: viewerId,
-          status: CommunityMemberStatus.ACTIVE,
-        },
-      },
-    },
-  ],
-});
-
-const publicCommunityWhere = {
-  visibility: CommunityVisibility.PUBLIC,
-  isSuspended: false,
-} satisfies Prisma.CommunityWhereInput;
-
 const buildCommunityBoundaryWhere = (
   viewer?: TViewer,
 ): Prisma.PostWhereInput => {
-  if (!viewer) {
-    return {
-      OR: [
-        {
-          communityId: null,
-        },
-        {
-          community: {
-            is: publicCommunityWhere,
-          },
-        },
-      ],
-    };
-  }
-
   return {
     OR: [
       {
@@ -60,12 +25,7 @@ const buildCommunityBoundaryWhere = (
       },
       {
         community: {
-          is: publicCommunityWhere,
-        },
-      },
-      {
-        community: {
-          is: activeMemberAccessWhere(viewer.id),
+          is: buildReadableCommunityWhere(viewer),
         },
       },
     ],
@@ -85,22 +45,30 @@ const buildPostVisibilityWhere = (viewer?: TViewer): Prisma.PostWhereInput => {
         visibility: PostVisibility.PUBLIC,
       },
       {
+        visibility: PostVisibility.PRIVATE,
         authorId: viewer.id,
       },
       {
         visibility: PostVisibility.FOLLOWERS,
-        author: {
-          followers: {
-            some: {
-              followerId: viewer.id,
+        OR: [
+          {
+            authorId: viewer.id,
+          },
+          {
+            author: {
+              followers: {
+                some: {
+                  followerId: viewer.id,
+                },
+              },
             },
           },
-        },
+        ],
       },
       {
         visibility: PostVisibility.COMMUNITY_ONLY,
         community: {
-          is: activeMemberAccessWhere(viewer.id),
+          is: buildAvailableParticipationWhere(viewer.id),
         },
       },
     ],
@@ -113,7 +81,10 @@ const buildVisiblePostWhere = (viewer?: TViewer): Prisma.PostWhereInput => {
     author: {
       is: activeAuthorWhere,
     },
-    AND: [buildCommunityBoundaryWhere(viewer), buildPostVisibilityWhere(viewer)],
+    AND: [
+      buildCommunityBoundaryWhere(viewer),
+      buildPostVisibilityWhere(viewer),
+    ],
   };
 };
 

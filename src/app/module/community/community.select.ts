@@ -25,27 +25,10 @@ const PUBLIC = {
   },
 } satisfies Prisma.CommunitySelect;
 
-const MEMBER = {
-  id: true,
-  communityId: true,
-  userId: true,
-  role: true,
-  status: true,
-  joinedAt: true,
-  user: {
-    select: DEFAULT_USER_SELECT,
-  },
-} satisfies Prisma.CommunityMemberSelect;
-
 export const CommunitySelect = {
   PUBLIC,
-  MEMBER,
 } as const;
 
 export type TCommunityPayload = Prisma.CommunityGetPayload<{
   select: typeof CommunitySelect.PUBLIC;
-}>;
-
-export type TCommunityMemberPayload = Prisma.CommunityMemberGetPayload<{
-  select: typeof CommunitySelect.MEMBER;
 }>;

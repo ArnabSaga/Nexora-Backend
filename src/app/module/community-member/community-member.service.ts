@@ -14,15 +14,19 @@ import {
   buildReadableCommunityWhere,
 } from "../../shared/policies/community.policy";
 import { mapPublicUser } from "../user/user.utils";
+import { calculateCommunityPagination } from "../community/community.pagination";
 import type {
   TCommunityMemberListQuery,
   TCommunityMemberListResult,
+  TCommunityMemberResponse,
   TCommunityMembershipActionResult,
   TUpdateCommunityRolePayload,
   TUpdateCommunityStatusPayload,
-} from "./community.interface";
-import { CommunitySelect } from "./community.select";
-import { calculateCommunityPagination } from "./community.service";
+} from "./community-member.interface";
+import {
+  CommunityMemberSelect,
+  type TCommunityMemberPayload,
+} from "./community-member.select";
 
 type TManagedMembership = {
   id: string;
@@ -32,12 +36,8 @@ type TManagedMembership = {
 };
 
 const mapCommunityMember = (
-  member: Awaited<
-    ReturnType<typeof prisma.communityMember.findFirstOrThrow>
-  > & {
-    user: Parameters<typeof mapPublicUser>[0];
-  },
-) => ({
+  member: TCommunityMemberPayload,
+): TCommunityMemberResponse => ({
   id: member.id,
   user: mapPublicUser(member.user),
   role: member.role,
@@ -246,7 +246,7 @@ const getCommunityMembers = async (
       skip: pagination.skip,
       take: pagination.take,
       orderBy: { joinedAt: "desc" },
-      select: CommunitySelect.MEMBER,
+      select: CommunityMemberSelect.PUBLIC,
     }),
     prisma.communityMember.count({ where }),
   ]);
@@ -297,7 +297,7 @@ const updateMemberRole = async (
   const updated = await prisma.communityMember.update({
     where: { id: targetMembership.id },
     data: { role: payload.role },
-    select: CommunitySelect.MEMBER,
+    select: CommunityMemberSelect.PUBLIC,
   });
 
   return mapCommunityMember(updated);
@@ -348,7 +348,7 @@ const updateMemberStatus = async (
   const updated = await prisma.communityMember.update({
     where: { id: targetMembership.id },
     data: { status: payload.status },
-    select: CommunitySelect.MEMBER,
+    select: CommunityMemberSelect.PUBLIC,
   });
 
   return mapCommunityMember(updated);

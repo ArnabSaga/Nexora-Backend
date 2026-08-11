@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  CommunityMemberRole,
-  CommunityMemberStatus,
-  CommunityVisibility,
-} from "../../../../src/generated/prisma/client";
+import { CommunityVisibility } from "../../../../src/generated/prisma/client";
 import {
   COMMUNITY_MAX_LIMIT,
   COMMUNITY_MAX_PAGE,
@@ -29,18 +25,6 @@ test("Community validation accepts canonical payloads and boundaries", () => {
     CommunityValidation.create.safeParse({
       name: "TypeScript Developers",
       visibility: CommunityVisibility.RESTRICTED,
-    }).success,
-    true,
-  );
-  assert.equal(
-    CommunityValidation.updateRole.safeParse({
-      role: CommunityMemberRole.MODERATOR,
-    }).success,
-    true,
-  );
-  assert.equal(
-    CommunityValidation.updateStatus.safeParse({
-      status: CommunityMemberStatus.BANNED,
     }).success,
     true,
   );
@@ -70,23 +54,11 @@ test("Community validation rejects normalized IDs and unsafe pagination", () => 
   );
 });
 
-test("Community validation rejects unknown fields and invalid management states", () => {
+test("Community validation rejects unknown fields and empty updates", () => {
   assert.equal(
     CommunityValidation.create.safeParse({ name: "Community", slug: "manual" })
       .success,
     false,
   );
   assert.equal(CommunityValidation.update.safeParse({}).success, false);
-  assert.equal(
-    CommunityValidation.updateRole.safeParse({
-      role: CommunityMemberRole.OWNER,
-    }).success,
-    false,
-  );
-  assert.equal(
-    CommunityValidation.updateStatus.safeParse({
-      status: CommunityMemberStatus.PENDING,
-    }).success,
-    false,
-  );
 });

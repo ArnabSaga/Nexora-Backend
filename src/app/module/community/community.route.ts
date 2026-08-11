@@ -24,62 +24,6 @@ router.get(
 );
 
 router.patch(
-  "/:communityId/members/:userId/role",
-  requireAuth,
-  communityMutationRateLimit,
-  validateRequest({
-    params: CommunityValidation.memberParam,
-    body: CommunityValidation.updateRole,
-  }),
-  CommunityController.updateMemberRole,
-);
-
-router.patch(
-  "/:communityId/members/:userId/status",
-  requireAuth,
-  communityMutationRateLimit,
-  validateRequest({
-    params: CommunityValidation.memberParam,
-    body: CommunityValidation.updateStatus,
-  }),
-  CommunityController.updateMemberStatus,
-);
-
-router.delete(
-  "/:communityId/members/:userId",
-  requireAuth,
-  communityMutationRateLimit,
-  validateRequest({ params: CommunityValidation.memberParam }),
-  CommunityController.removeCommunityMember,
-);
-
-router.post(
-  "/:id/join",
-  requireAuth,
-  communityMutationRateLimit,
-  validateRequest({ params: CommunityValidation.idParam }),
-  CommunityController.joinCommunity,
-);
-
-router.delete(
-  "/:id/leave",
-  requireAuth,
-  communityMutationRateLimit,
-  validateRequest({ params: CommunityValidation.idParam }),
-  CommunityController.leaveCommunity,
-);
-
-router.get(
-  "/:id/members",
-  optionalAuth,
-  validateRequest({
-    params: CommunityValidation.idParam,
-    query: CommunityValidation.memberListQuery,
-  }),
-  CommunityController.getCommunityMembers,
-);
-
-router.patch(
   "/:id",
   requireAuth,
   communityMutationRateLimit,

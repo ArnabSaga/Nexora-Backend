@@ -5,15 +5,9 @@ import type {
 } from "../../../generated/prisma/client";
 import type { TMeta } from "../../shared/response/response.types";
 import type { TPublicUser } from "../user/user.interface";
+import type { TCommunityPaginationQuery } from "./community.pagination";
 
-export type TCommunityListQuery = {
-  page?: number;
-  limit?: number;
-};
-
-export type TCommunityMemberListQuery = TCommunityListQuery & {
-  status?: CommunityMemberStatus;
-};
+export type TCommunityListQuery = TCommunityPaginationQuery;
 
 export type TCreateCommunityPayload = {
   name: string;
@@ -22,14 +16,6 @@ export type TCreateCommunityPayload = {
 };
 
 export type TUpdateCommunityPayload = Partial<TCreateCommunityPayload>;
-
-export type TUpdateCommunityRolePayload = {
-  role: CommunityMemberRole;
-};
-
-export type TUpdateCommunityStatusPayload = {
-  status: CommunityMemberStatus;
-};
 
 export type TCommunityResponse = {
   id: string;
@@ -49,30 +35,7 @@ export type TCommunityResponse = {
   updatedAt: Date;
 };
 
-export type TCommunityMemberResponse = {
-  id: string;
-  user: TPublicUser;
-  role: CommunityMemberRole;
-  status: CommunityMemberStatus;
-  joinedAt: Date;
-};
-
 export type TCommunityListResult = {
   data: TCommunityResponse[];
   meta: TMeta;
-};
-
-export type TCommunityMemberListResult = {
-  data: TCommunityMemberResponse[];
-  meta: TMeta;
-};
-
-export type TCommunityMembershipActionResult = {
-  statusCode: number;
-  message: string;
-  data: {
-    id: string;
-    role: CommunityMemberRole;
-    status: CommunityMemberStatus;
-  };
 };

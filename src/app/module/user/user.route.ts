@@ -9,50 +9,11 @@ import { UserValidation } from "./user.validation";
 const router = Router();
 
 router.get(
-  "/suggestions",
-  requireAuth,
-  validateRequest({ query: UserValidation.publicListQuery }),
-  UserController.getSuggestions,
-);
-
-router.get(
   "/",
   requireAuth,
   validateRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
   validateRequest({ query: UserValidation.listUsersQuery }),
   UserController.getAllUsers,
-);
-
-router.get(
-  "/:userId/followers",
-  validateRequest({
-    params: UserValidation.userIdParam,
-    query: UserValidation.publicListQuery,
-  }),
-  UserController.getFollowers,
-);
-
-router.get(
-  "/:userId/following",
-  validateRequest({
-    params: UserValidation.userIdParam,
-    query: UserValidation.publicListQuery,
-  }),
-  UserController.getFollowing,
-);
-
-router.post(
-  "/:userId/follow",
-  requireAuth,
-  validateRequest({ params: UserValidation.userIdParam }),
-  UserController.followUser,
-);
-
-router.delete(
-  "/:userId/follow",
-  requireAuth,
-  validateRequest({ params: UserValidation.userIdParam }),
-  UserController.unfollowUser,
 );
 
 router.get(

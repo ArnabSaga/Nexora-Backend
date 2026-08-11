@@ -1,5 +1,4 @@
 import { UserRole, UserStatus } from "../../../generated/prisma/client";
-import { TMeta } from "../../shared/response/response.types";
 
 export type TUserListQuery = {
   searchTerm?: string;
@@ -44,17 +43,4 @@ export type TAdminUser = TPublicUser & {
   lastLoginAt?: Date | null;
   deletedAt?: Date | null;
   updatedAt: Date;
-};
-
-export type TPaginatedResult<T> = {
-  data: T[];
-  meta: TMeta;
-};
-
-export type TFollowActionResult = {
-  statusCode: number;
-  message: string;
-  data: {
-    following: boolean;
-  };
 };

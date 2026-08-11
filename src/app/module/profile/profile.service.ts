@@ -9,7 +9,7 @@ import {
   normalizeUsername,
 } from "../../shared/helpers/username";
 import { ProfessionalService } from "../professional/professional.service";
-import { ACTIVE_PUBLIC_USER_WHERE } from "../user/user.constant";
+import { ACTIVE_PUBLIC_USER_WHERE } from "../../shared/policies/user.policy";
 import {
   PROFILE_OWNER_SELECT,
   PROFILE_UPDATE_FIELDS,

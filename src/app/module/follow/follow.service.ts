@@ -1,9 +1,11 @@
 import status from "http-status";
+import { NotificationType } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
 import { paginationHelper } from "../../shared/helpers/paginationHelper";
 import { isUniqueConstraintOn } from "../../shared/helpers/prismaUnique";
 import { ACTIVE_PUBLIC_USER_WHERE } from "../../shared/policies/user.policy";
+import { createPrismaNotificationWriter } from "../../shared/notifications/notification-writer.prisma.factory";
 import { DEFAULT_USER_SELECT } from "../user/user.constant";
 import { mapPublicUser } from "../user/user.utils";
 import {
@@ -63,11 +65,23 @@ const followUser = async (
   await getActiveUserOrThrow(targetUserId);
 
   try {
-    await prisma.follow.create({
-      data: {
-        followerId: requester.id,
-        followingId: targetUserId,
-      },
+    await prisma.$transaction(async (tx) => {
+      const follow = await tx.follow.create({
+        data: {
+          followerId: requester.id,
+          followingId: targetUserId,
+        },
+        select: { id: true },
+      });
+      await createPrismaNotificationWriter(tx).writeEvents([
+        {
+          type: NotificationType.FOLLOW,
+          senderId: requester.id,
+          receiverId: targetUserId,
+          sourceKey: `FOLLOW:${follow.id}`,
+          target: null,
+        },
+      ]);
     });
   } catch (error) {
     if (isUniqueConstraintOn(error, ["followerId", "followingId"])) {

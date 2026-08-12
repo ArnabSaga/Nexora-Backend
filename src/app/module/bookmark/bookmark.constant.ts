@@ -1,0 +1,3 @@
+export const BOOKMARK_DEFAULT_LIMIT = 10;
+export const BOOKMARK_MAX_LIMIT = 50;
+export const BOOKMARK_CURSOR_VERSION = 1;

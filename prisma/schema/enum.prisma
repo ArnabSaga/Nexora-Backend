@@ -73,9 +73,34 @@ enum NotificationType {
   COMMUNITY_ROLE_UPDATE
 }
 
+enum NotificationTargetType {
+  POST
+  COMMENT
+  COMMUNITY
+}
+
 enum ReportStatus {
   PENDING
   REVIEWED
   RESOLVED
   REJECTED
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  HATE_SPEECH
+  VIOLENCE
+  SEXUAL_CONTENT
+  MISINFORMATION
+  IMPERSONATION
+  PRIVACY
+  OTHER
+}
+
+enum ReportTargetType {
+  USER
+  POST
+  COMMENT
+  COMMUNITY
 }

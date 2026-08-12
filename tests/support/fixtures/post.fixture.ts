@@ -9,6 +9,7 @@ type TCreateTestPostInput = {
   visibility?: PostVisibility;
   repostId?: string;
   communityId?: string;
+  createdAt?: Date;
 };
 
 export const createTestPost = async ({
@@ -18,6 +19,7 @@ export const createTestPost = async ({
   visibility = PostVisibility.PUBLIC,
   repostId,
   communityId,
+  createdAt,
 }: TCreateTestPostInput) => {
   const post = await prisma.post.create({
     data: {
@@ -26,6 +28,7 @@ export const createTestPost = async ({
       visibility,
       repostId,
       communityId,
+      createdAt,
     },
   });
 

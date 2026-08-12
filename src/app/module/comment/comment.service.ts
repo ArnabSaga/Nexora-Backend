@@ -1,5 +1,9 @@
 import status from "http-status";
-import { Prisma, UserRole } from "../../../generated/prisma/client";
+import {
+  NotificationType,
+  Prisma,
+  UserRole,
+} from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
 import { paginationHelper } from "../../shared/helpers/paginationHelper";
@@ -23,6 +27,7 @@ import type { TVoteReadService } from "../vote/vote-read.factory";
 import { createPrismaVoteReadService } from "../vote/vote-read.prisma.factory";
 import { VoteReadService } from "../vote/vote-read.service";
 import type { TCommentActionResponse } from "./comment.interface";
+import { createPrismaNotificationWriter } from "../../shared/notifications/notification-writer.prisma.factory";
 
 type TPrismaTransaction = Prisma.TransactionClient;
 
@@ -97,6 +102,7 @@ const ensureParticipatingPost = async (
 
 type TCommentMutationBindings = {
   createVoteReadService: typeof createPrismaVoteReadService;
+  createNotificationWriter?: typeof createPrismaNotificationWriter;
 };
 
 const createCommentMutation = async (
@@ -105,7 +111,11 @@ const createCommentMutation = async (
   payload: TCommentPayload,
   bindings: TCommentMutationBindings,
 ) => {
-  await ensureParticipatingPost(postId, requester);
+  const post = await prisma.post.findFirst({
+    where: { id: postId, ...buildParticipatingPostWhere(requester) },
+    select: { id: true, authorId: true },
+  });
+  if (!post) throw new AppError(status.NOT_FOUND, "Post not found");
 
   return prisma.$transaction(async (tx) => {
     const comment = await tx.comment.create({
@@ -116,6 +126,17 @@ const createCommentMutation = async (
       },
       select: CommentSelect.PUBLIC,
     });
+    await (bindings.createNotificationWriter ?? createPrismaNotificationWriter)(
+      tx,
+    ).writeEvents([
+      {
+        type: NotificationType.COMMENT,
+        senderId: requester.id,
+        receiverId: post.authorId,
+        sourceKey: `COMMENT:${comment.id}`,
+        target: { type: "COMMENT", id: comment.id, postId },
+      },
+    ]);
 
     return enrichCommentActionVoteState(
       mapComment(comment),
@@ -143,6 +164,7 @@ const createReplyMutation = async (
       id: true,
       postId: true,
       parentCommentId: true,
+      authorId: true,
     },
   });
 
@@ -167,6 +189,21 @@ const createReplyMutation = async (
       },
       select: CommentSelect.REPLY,
     });
+    await (bindings.createNotificationWriter ?? createPrismaNotificationWriter)(
+      tx,
+    ).writeEvents([
+      {
+        type: NotificationType.REPLY,
+        senderId: requester.id,
+        receiverId: parentComment.authorId,
+        sourceKey: `REPLY:${reply.id}`,
+        target: {
+          type: "COMMENT",
+          id: reply.id,
+          postId: parentComment.postId,
+        },
+      },
+    ]);
 
     return enrichCommentActionVoteState(
       mapCommentReply(reply),
@@ -416,6 +453,7 @@ export const createCommentMutationService = (
 
 const CommentMutationService = createCommentMutationService({
   createVoteReadService: createPrismaVoteReadService,
+  createNotificationWriter: createPrismaNotificationWriter,
 });
 
 export const CommentService = {

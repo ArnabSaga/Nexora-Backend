@@ -3,6 +3,7 @@ import {
   CommunityMemberRole,
   CommunityMemberStatus,
   CommunityVisibility,
+  NotificationType,
   Prisma,
 } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
@@ -15,6 +16,7 @@ import {
 } from "../../shared/policies/community.policy";
 import { mapPublicUser } from "../user/user.utils";
 import { calculateCommunityPagination } from "../community/community.pagination";
+import { createPrismaNotificationWriter } from "../../shared/notifications/notification-writer.prisma.factory";
 import type {
   TCommunityMemberListQuery,
   TCommunityMemberListResult,
@@ -27,6 +29,7 @@ import {
   CommunityMemberSelect,
   type TCommunityMemberPayload,
 } from "./community-member.select";
+import { createCommunityMemberRoleUpdateService } from "./community-member-role-update.factory";
 
 type TManagedMembership = {
   id: string;
@@ -34,6 +37,11 @@ type TManagedMembership = {
   role: CommunityMemberRole;
   status: CommunityMemberStatus;
 };
+
+type TCommunityMemberClient = Pick<
+  Prisma.TransactionClient,
+  "community" | "communityMember"
+>;
 
 const mapCommunityMember = (
   member: TCommunityMemberPayload,
@@ -167,9 +175,10 @@ const resolveManagementContext = async (
   communityId: string,
   requesterId: string,
   targetUserId?: string,
+  client: TCommunityMemberClient = prisma,
 ) => {
   const userIds = targetUserId ? [requesterId, targetUserId] : [requesterId];
-  const community = await prisma.community.findFirst({
+  const community = await client.community.findFirst({
     where: { id: communityId, ...AVAILABLE_COMMUNITY_WHERE },
     select: {
       id: true,
@@ -268,39 +277,40 @@ const updateMemberRole = async (
   requester: Express.AuthenticatedUser,
   payload: TUpdateCommunityRolePayload,
 ) => {
-  const { requesterRole, targetMembership } = await resolveManagementContext(
-    communityId,
-    requester.id,
-    userId,
-  );
-
-  if (
-    !targetMembership ||
-    targetMembership.status !== CommunityMemberStatus.ACTIVE
-  ) {
-    throw new AppError(status.NOT_FOUND, "Community member not found");
-  }
-  if (targetMembership.role === CommunityMemberRole.OWNER) {
-    throw new AppError(status.FORBIDDEN, "Community owner cannot be modified");
-  }
-
-  const ownerAllowed = requesterRole === CommunityMemberRole.OWNER;
-  const adminAllowed =
-    requesterRole === CommunityMemberRole.ADMIN &&
-    targetMembership.role !== CommunityMemberRole.ADMIN &&
-    payload.role !== CommunityMemberRole.ADMIN;
-
-  if (!ownerAllowed && !adminAllowed) {
-    throw new AppError(status.NOT_FOUND, "Community member not found");
-  }
-
-  const updated = await prisma.communityMember.update({
-    where: { id: targetMembership.id },
-    data: { role: payload.role },
-    select: CommunityMemberSelect.PUBLIC,
+  return prisma.$transaction(async (tx) => {
+    const roleUpdateService = createCommunityMemberRoleUpdateService({
+      resolveManagementContext: () =>
+        resolveManagementContext(communityId, requester.id, userId, tx),
+      compareAndSwapRole: async (membership, requestedRole) => {
+        const changed = await tx.communityMember.updateMany({
+          where: {
+            id: membership.id,
+            role: membership.role,
+            status: CommunityMemberStatus.ACTIVE,
+          },
+          data: { role: requestedRole },
+        });
+        return changed.count === 1;
+      },
+      readMembership: (membershipId) =>
+        tx.communityMember.findUniqueOrThrow({
+          where: { id: membershipId },
+          select: CommunityMemberSelect.PUBLIC,
+        }),
+      writeRoleNotification: async () => {
+        await createPrismaNotificationWriter(tx).writeEvents([
+          {
+            type: NotificationType.COMMUNITY_ROLE_UPDATE,
+            senderId: requester.id,
+            receiverId: userId,
+            target: { type: "COMMUNITY", id: communityId },
+          },
+        ]);
+      },
+    });
+    const updated = await roleUpdateService.updateMemberRole(payload.role);
+    return mapCommunityMember(updated);
   });
-
-  return mapCommunityMember(updated);
 };
 
 const updateMemberStatus = async (

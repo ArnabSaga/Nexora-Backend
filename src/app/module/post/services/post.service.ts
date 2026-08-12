@@ -1,6 +1,7 @@
 import status from "http-status";
 import {
   CommunityVisibility,
+  NotificationType,
   PostType,
   PostVisibility,
   Prisma,
@@ -16,6 +17,7 @@ import { HashtagService } from "./hashtag.service";
 import { MentionService } from "./mention.service";
 import { PostMediaService } from "./post-media.service";
 import { PostVisibilityService } from "./post-visibility.service";
+import { createPrismaNotificationWriter } from "../../../shared/notifications/notification-writer.prisma.factory";
 import {
   TCreatePostInput,
   TCreateRepostInput,
@@ -35,6 +37,7 @@ import {
 
 type TPostMutationBindings = {
   createPostResponseService: typeof createPrismaPostResponseService;
+  createNotificationWriter?: typeof createPrismaNotificationWriter;
   mediaService: Pick<
     typeof PostMediaService,
     "validateFiles" | "uploadFiles" | "safeCleanupUploadedMedia"
@@ -168,6 +171,17 @@ const createMutation = async (
         tx,
         createdPost.id,
         mentionedUserIds,
+      );
+      await (
+        bindings.createNotificationWriter ?? createPrismaNotificationWriter
+      )(tx).writeEvents(
+        mentionedUserIds.map((receiverId) => ({
+          type: NotificationType.MENTION,
+          senderId: author.id,
+          receiverId,
+          sourceKey: `MENTION:POST:${createdPost.id}:USER:${receiverId}`,
+          target: { type: "POST" as const, id: createdPost.id },
+        })),
       );
 
       const post = await tx.post.findUniqueOrThrow({
@@ -408,6 +422,10 @@ const repostMutation = async (
   const content = normalizePostContent(payload.content);
 
   return prisma.$transaction(async (tx) => {
+    const original = await tx.post.findUniqueOrThrow({
+      where: { id: originalId },
+      select: { authorId: true },
+    });
     const createdPost = await tx.post.create({
       data: {
         authorId: author.id,
@@ -422,6 +440,17 @@ const repostMutation = async (
     });
 
     await HashtagService.syncPostHashtags(tx, createdPost.id, content);
+    await (bindings.createNotificationWriter ?? createPrismaNotificationWriter)(
+      tx,
+    ).writeEvents([
+      {
+        type: NotificationType.REPOST,
+        senderId: author.id,
+        receiverId: original.authorId,
+        sourceKey: `REPOST:${createdPost.id}`,
+        target: { type: "POST", id: originalId },
+      },
+    ]);
 
     const post = await tx.post.findUniqueOrThrow({
       where: {
@@ -454,6 +483,7 @@ export const createPostMutationService = (bindings: TPostMutationBindings) => ({
 
 const PostMutationService = createPostMutationService({
   createPostResponseService: createPrismaPostResponseService,
+  createNotificationWriter: createPrismaNotificationWriter,
   mediaService: PostMediaService,
 });
 

@@ -75,6 +75,9 @@ const zeroStates = (ids: string[]) =>
     ids.map((id) => [id, { votesCount: 0, voteScore: 0, viewerVote: null }]),
   );
 
+const noBookmarks = (ids: string[]) =>
+  new Map(ids.map((id) => [id, false]));
+
 test("Post response enrichment skips original lookup for normal Posts", async () => {
   let originalLookupCalls = 0;
   const voteCalls: string[][] = [];
@@ -87,6 +90,7 @@ test("Post response enrichment skips original lookup for normal Posts", async ()
       voteCalls.push(ids);
       return zeroStates(ids);
     },
+    getPostBookmarkStates: async (ids) => noBookmarks(ids),
   });
 
   const result = await service.enrichPosts([
@@ -117,6 +121,8 @@ test("Post response enrichment batches visible originals and keeps invisible tom
       voteCalls.push(ids);
       return zeroStates(ids);
     },
+    getPostBookmarkStates: async (ids) =>
+      new Map(ids.map((id) => [id, id === "root-a" || id === "original-b"])),
   });
 
   const result = await service.enrichPosts([
@@ -144,6 +150,14 @@ test("Post response enrichment batches visible originals and keeps invisible tom
   assert.equal(result[0].originalPost?.id, "original-a");
   assert.equal(result[1].originalPost?.id, "original-a");
   assert.equal(result[2].originalPost?.id, "original-b");
+  assert.equal(result[0].viewerState.bookmarked, true);
+  assert.equal(result[1].viewerState.bookmarked, false);
+  assert.equal(
+    result[2].originalPost && !("unavailable" in result[2].originalPost)
+      ? result[2].originalPost.viewerState.bookmarked
+      : false,
+    true,
+  );
   assert.deepEqual(result[3].originalPost, {
     id: "original-hidden",
     unavailable: true,
@@ -159,6 +173,7 @@ test("single Post enrichment delegates to the shared list implementation", async
       voteCalls.push(ids);
       return zeroStates(ids);
     },
+    getPostBookmarkStates: async (ids) => noBookmarks(ids),
   });
 
   const result = await service.enrichPost(createPostPayload("single"));

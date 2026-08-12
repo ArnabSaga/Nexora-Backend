@@ -34,6 +34,10 @@ model User {
   postReportsSubmitted      PostReport[]      @relation("PostReportReporter")
   commentReportsSubmitted   CommentReport[]   @relation("CommentReportReporter")
   communityReportsSubmitted CommunityReport[] @relation("CommunityReportReporter")
+  userReportsReviewed       UserReport[]      @relation("UserReportReviewer")
+  postReportsReviewed       PostReport[]      @relation("PostReportReviewer")
+  commentReportsReviewed    CommentReport[]   @relation("CommentReportReviewer")
+  communityReportsReviewed  CommunityReport[] @relation("CommunityReportReviewer")
   postMentions              PostMention[]     @relation("PostMentionedUser")
   commentMentions           CommentMention[]  @relation("CommentMentionedUser")
 

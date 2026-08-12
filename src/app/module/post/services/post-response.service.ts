@@ -1,6 +1,10 @@
 import type { Prisma } from "../../../../generated/prisma/client";
 import { prisma } from "../../../lib/prisma";
 import {
+  createPrismaBookmarkReadService,
+  type TBookmarkReadPrismaClient,
+} from "../../bookmark/bookmark-read.prisma.factory";
+import {
   createPrismaVoteReadService,
   type TVoteReadPrismaClient,
 } from "../../vote/vote-read.prisma.factory";
@@ -9,12 +13,14 @@ import { createPostResponseService } from "./post-response.factory";
 import { PostVisibilityService } from "./post-visibility.service";
 
 type TPostResponsePrismaClient = Pick<Prisma.TransactionClient, "post"> &
-  TVoteReadPrismaClient;
+  TVoteReadPrismaClient &
+  TBookmarkReadPrismaClient;
 
 export const createPrismaPostResponseService = (
   client: TPostResponsePrismaClient,
 ) => {
   const voteReadService = createPrismaVoteReadService(client);
+  const bookmarkReadService = createPrismaBookmarkReadService(client);
 
   return createPostResponseService({
     findVisibleOriginalPosts: (originalIds, viewer) =>
@@ -32,6 +38,7 @@ export const createPrismaPostResponseService = (
         select: PostSelect.ORIGINAL_POST,
       }),
     getPostVoteStates: voteReadService.getPostVoteStates,
+    getPostBookmarkStates: bookmarkReadService.getPostBookmarkStates,
   });
 };
 

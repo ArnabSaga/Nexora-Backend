@@ -116,8 +116,6 @@ export const reactionMutationRateLimit = createRateLimit({
   windowMs: 15 * 60 * 1000,
   max: 120,
   message: "Too many reaction requests. Please try again later.",
-  // Reaction routes are authenticated; IP is only a defensive fallback if
-  // middleware ordering is accidentally changed.
   keyGenerator: (req) =>
     req.user?.id ? `user:${req.user.id}` : getClientKey(req),
 });
@@ -126,8 +124,6 @@ export const voteMutationRateLimit = createRateLimit({
   windowMs: 15 * 60 * 1000,
   max: 120,
   message: "Too many vote requests. Please try again later.",
-  // Vote routes are authenticated; IP is only a defensive fallback if
-  // middleware ordering is accidentally changed.
   keyGenerator: (req) =>
     req.user?.id ? `user:${req.user.id}` : getClientKey(req),
 });
@@ -136,8 +132,6 @@ export const followMutationRateLimit = createRateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
   message: "Too many follow requests. Please try again later.",
-  // Follow routes are authenticated; IP is only a defensive fallback if
-  // middleware ordering is accidentally changed.
   keyGenerator: (req) =>
     req.user?.id ? `user:${req.user.id}` : getClientKey(req),
 });
@@ -146,8 +140,30 @@ export const communityMutationRateLimit = createRateLimit({
   windowMs: 15 * 60 * 1000,
   max: 60,
   message: "Too many community requests. Please try again later.",
-  // Community routes are authenticated; IP is only a defensive fallback if
-  // middleware ordering is accidentally changed.
+  keyGenerator: (req) =>
+    req.user?.id ? `user:${req.user.id}` : getClientKey(req),
+});
+
+export const bookmarkMutationRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: "Too many bookmark requests. Please try again later.",
+  keyGenerator: (req) =>
+    req.user?.id ? `user:${req.user.id}` : getClientKey(req),
+});
+
+export const notificationMutationRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: "Too many notification requests. Please try again later.",
+  keyGenerator: (req) =>
+    req.user?.id ? `user:${req.user.id}` : getClientKey(req),
+});
+
+export const reportCreateRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Too many report requests. Please try again later.",
   keyGenerator: (req) =>
     req.user?.id ? `user:${req.user.id}` : getClientKey(req),
 });

@@ -93,6 +93,7 @@ export type TPostCountsResponse = {
 
 export type TPostViewerState = {
   vote: VoteType | null;
+  bookmarked: boolean;
 };
 
 export type TUnavailableOriginalPost = {

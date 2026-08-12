@@ -1,6 +1,8 @@
 import { Router } from "express";
 
 import { AuthRoutes } from "../module/auth/auth.route";
+import { BookmarkRoutes } from "../module/bookmark/bookmark.route";
+import { PostBookmarkRoutes } from "../module/bookmark/post-bookmark.route";
 import { CommentRoutes } from "../module/comment/comment.route";
 import { CommunityMemberRoutes } from "../module/community-member/community-member.route";
 import {
@@ -31,6 +33,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/profile/experience", route: ExperienceRoutes },
   { path: "/profile/education", route: EducationRoutes },
   { path: "/profile/skills", route: SkillRoutes },
+  { path: "/posts", route: PostBookmarkRoutes },
   { path: "/posts", route: PostReactionRoutes },
   { path: "/posts", route: PostVoteRoutes },
   { path: "/posts", route: PostCommentRoutes },
@@ -38,6 +41,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/comments", route: CommentReactionRoutes },
   { path: "/comments", route: CommentVoteRoutes },
   { path: "/comments", route: CommentRoutes },
+  { path: "/bookmarks", route: BookmarkRoutes },
   { path: "/communities", route: CommunityNestedRuleRoutes },
   { path: "/communities", route: CommunityMemberRoutes },
   { path: "/communities", route: CommunityRoutes },

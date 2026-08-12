@@ -76,7 +76,7 @@ model Bookmark {
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([userId, postId])
-  @@index([userId])
+  @@index([userId, createdAt, id])
   @@index([postId])
   @@map("bookmark")
 }

@@ -9,7 +9,7 @@
     "build": "tsup src/server.ts --format esm --clean",
     "dev": "tsx watch src/server.ts",
     "test": "pnpm test:unit && pnpm test:integration",
-    "test:unit": "tsx --test tests/unit/config/env.test.ts tests/unit/middleware/rateLimit.test.ts tests/unit/support/database/test-database-safety.test.ts tests/unit/modules/reaction/reaction.validation.test.ts tests/unit/modules/vote/vote.validation.test.ts tests/unit/modules/vote/vote-read.service.test.ts tests/unit/modules/vote/vote-read.prisma.factory.test.ts tests/unit/modules/post/post-response.service.test.ts tests/unit/modules/post/post-media-cleanup.test.ts tests/unit/modules/post/post-media-upload.test.ts tests/unit/modules/comment/comment-vote-targets.test.ts tests/unit/modules/follow/follow.validation.test.ts tests/unit/modules/community/community.validation.test.ts tests/unit/modules/community-member/community-member.validation.test.ts tests/unit/modules/community-rule/community-rule.validation.test.ts tests/unit/modules/community-rule/community-rule-update.factory.test.ts",
+    "test:unit": "tsx --test tests/unit/config/env.test.ts tests/unit/middleware/rateLimit.test.ts tests/unit/support/database/test-database-safety.test.ts tests/unit/modules/reaction/reaction.validation.test.ts tests/unit/modules/vote/vote.validation.test.ts tests/unit/modules/vote/vote-read.service.test.ts tests/unit/modules/vote/vote-read.prisma.factory.test.ts tests/unit/modules/post/post-response.service.test.ts tests/unit/modules/post/post-media-cleanup.test.ts tests/unit/modules/post/post-media-upload.test.ts tests/unit/modules/comment/comment-vote-targets.test.ts tests/unit/modules/follow/follow.validation.test.ts tests/unit/modules/community/community.validation.test.ts tests/unit/modules/community-member/community-member.validation.test.ts tests/unit/modules/community-rule/community-rule.validation.test.ts tests/unit/modules/community-rule/community-rule-update.factory.test.ts tests/unit/modules/bookmark/bookmark.validation.test.ts tests/unit/modules/bookmark/bookmark-read.factory.test.ts tests/unit/modules/bookmark/bookmark-read.prisma.factory.test.ts tests/unit/modules/bookmark/bookmark-save.factory.test.ts",
     "test:integration": "tsx tests/runners/integration.runner.ts tests/integration",
     "test:reaction:integration": "tsx tests/runners/integration.runner.ts tests/integration/modules/reaction",
     "test:vote:integration": "tsx tests/runners/integration.runner.ts tests/integration/modules/vote",
@@ -17,6 +17,7 @@
     "test:community:integration": "tsx tests/runners/integration.runner.ts tests/integration/modules/community",
     "test:community-member:integration": "tsx tests/runners/integration.runner.ts tests/integration/modules/community-member",
     "test:community-rule:integration": "tsx tests/runners/integration.runner.ts tests/integration/modules/community-rule",
+    "test:bookmark:integration": "tsx tests/runners/integration.runner.ts tests/integration/modules/bookmark",
     "migrate": "prisma migrate dev",
     "generate": "prisma generate",
     "studio": "prisma studio"

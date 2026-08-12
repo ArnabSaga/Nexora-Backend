@@ -59,6 +59,7 @@ export const mapAvailableOriginalPost = (
     },
     viewerState: {
       vote: null as VoteType | null,
+      bookmarked: false,
     },
   };
 };
@@ -110,6 +111,7 @@ export const mapPost = (post: TPostPayload): TPostResponse => {
     },
     viewerState: {
       vote: null as VoteType | null,
+      bookmarked: false,
     },
     originalPost: post.repostId
       ? {
@@ -120,7 +122,7 @@ export const mapPost = (post: TPostPayload): TPostResponse => {
   };
 };
 
-export const collectPostVoteTargetIds = (posts: TPostResponse[]) => {
+export const collectPostViewerStateTargetIds = (posts: TPostResponse[]) => {
   const ids = posts.map((post) => post.id);
 
   for (const post of posts) {
@@ -132,6 +134,34 @@ export const collectPostVoteTargetIds = (posts: TPostResponse[]) => {
   }
 
   return [...new Set(ids)];
+};
+
+export const mergePostBookmarkStates = (
+  posts: TPostResponse[],
+  bookmarkStates: Map<string, boolean>,
+): TPostResponse[] => {
+  return posts.map((post) => {
+    const originalPost = post.originalPost;
+    const enrichedOriginal =
+      originalPost && !("unavailable" in originalPost)
+        ? {
+            ...originalPost,
+            viewerState: {
+              ...originalPost.viewerState,
+              bookmarked: bookmarkStates.get(originalPost.id) ?? false,
+            },
+          }
+        : originalPost;
+
+    return {
+      ...post,
+      viewerState: {
+        ...post.viewerState,
+        bookmarked: bookmarkStates.get(post.id) ?? false,
+      },
+      originalPost: enrichedOriginal,
+    };
+  });
 };
 
 export const mergePostVoteStates = (

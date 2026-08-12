@@ -4,12 +4,14 @@ import type {
 } from "../constants/post.select";
 import type { TPostResponse } from "../post.interface";
 import {
-  collectPostVoteTargetIds,
+  collectPostViewerStateTargetIds,
   mapAvailableOriginalPost,
   mapPost,
+  mergePostBookmarkStates,
   mergePostVoteStates,
 } from "../utils/post.utils";
 import type { TVoteReadService } from "../../vote/vote-read.factory";
+import type { TBookmarkReadService } from "../../bookmark/bookmark-read.factory";
 
 type TPostResponseCollaborators = {
   findVisibleOriginalPosts: (
@@ -17,11 +19,13 @@ type TPostResponseCollaborators = {
     viewer?: Express.AuthenticatedUser,
   ) => Promise<TOriginalPostPayload[]>;
   getPostVoteStates: TVoteReadService["getPostVoteStates"];
+  getPostBookmarkStates: TBookmarkReadService["getPostBookmarkStates"];
 };
 
 export const createPostResponseService = ({
   findVisibleOriginalPosts,
   getPostVoteStates,
+  getPostBookmarkStates,
 }: TPostResponseCollaborators) => {
   const enrichPosts = async (
     posts: TPostPayload[],
@@ -58,12 +62,16 @@ export const createPostResponseService = ({
         originalPost: originalMap.get(originalPost.id) ?? originalPost,
       };
     });
-    const voteStates = await getPostVoteStates(
-      collectPostVoteTargetIds(postsWithOriginals),
-      viewer?.id,
-    );
+    const targetIds = collectPostViewerStateTargetIds(postsWithOriginals);
+    const [voteStates, bookmarkStates] = await Promise.all([
+      getPostVoteStates(targetIds, viewer?.id),
+      getPostBookmarkStates(targetIds, viewer?.id),
+    ]);
 
-    return mergePostVoteStates(postsWithOriginals, voteStates);
+    return mergePostBookmarkStates(
+      mergePostVoteStates(postsWithOriginals, voteStates),
+      bookmarkStates,
+    );
   };
 
   const enrichPost = async (

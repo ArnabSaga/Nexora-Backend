@@ -6,6 +6,9 @@ model Notification {
   commentId   String?
   communityId String?
   type        NotificationType
+  sourceKey   String?                @unique
+  targetType  NotificationTargetType?
+  targetId    String?
   message     String
   isRead      Boolean          @default(false)
   createdAt   DateTime         @default(now())
@@ -16,14 +19,13 @@ model Notification {
   comment   Comment?   @relation(fields: [commentId], references: [id], onDelete: SetNull)
   community Community? @relation(fields: [communityId], references: [id], onDelete: SetNull)
 
-  @@index([receiverId])
+  @@index([receiverId, createdAt, id])
+  @@index([receiverId, isRead, createdAt, id])
   @@index([senderId])
   @@index([postId])
   @@index([commentId])
   @@index([communityId])
   @@index([type])
-  @@index([isRead])
-  @@index([createdAt])
   @@map("notification")
 }
 

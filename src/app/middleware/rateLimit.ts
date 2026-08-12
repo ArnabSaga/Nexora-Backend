@@ -151,3 +151,11 @@ export const bookmarkMutationRateLimit = createRateLimit({
   keyGenerator: (req) =>
     req.user?.id ? `user:${req.user.id}` : getClientKey(req),
 });
+
+export const notificationMutationRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: "Too many notification requests. Please try again later.",
+  keyGenerator: (req) =>
+    req.user?.id ? `user:${req.user.id}` : getClientKey(req),
+});

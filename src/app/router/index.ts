@@ -15,6 +15,7 @@ import { EducationRoutes } from "../module/education/education.route";
 import { ExperienceRoutes } from "../module/experience/experience.route";
 import { FollowRoutes } from "../module/follow/follow.route";
 import { PostRoutes } from "../module/post/post.route";
+import { NotificationRoutes } from "../module/notification/notification.route";
 import { ProfileIdentityRoutes } from "../module/profile/profile.route";
 import { CommentReactionRoutes } from "../module/reaction/comment-reaction.route";
 import { PostReactionRoutes } from "../module/reaction/post-reaction.route";
@@ -42,6 +43,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/comments", route: CommentVoteRoutes },
   { path: "/comments", route: CommentRoutes },
   { path: "/bookmarks", route: BookmarkRoutes },
+  { path: "/notifications", route: NotificationRoutes },
   { path: "/communities", route: CommunityNestedRuleRoutes },
   { path: "/communities", route: CommunityMemberRoutes },
   { path: "/communities", route: CommunityRoutes },

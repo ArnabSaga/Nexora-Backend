@@ -73,6 +73,12 @@ enum NotificationType {
   COMMUNITY_ROLE_UPDATE
 }
 
+enum NotificationTargetType {
+  POST
+  COMMENT
+  COMMUNITY
+}
+
 enum ReportStatus {
   PENDING
   REVIEWED

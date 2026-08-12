@@ -1,17 +1,17 @@
 model Notification {
-  id          String           @id @default(cuid())
+  id          String                  @id @default(cuid())
   receiverId  String
   senderId    String?
   postId      String?
   commentId   String?
   communityId String?
   type        NotificationType
-  sourceKey   String?                @unique
+  sourceKey   String?                 @unique
   targetType  NotificationTargetType?
   targetId    String?
   message     String
-  isRead      Boolean          @default(false)
-  createdAt   DateTime         @default(now())
+  isRead      Boolean                 @default(false)
+  createdAt   DateTime                @default(now())
 
   receiver  User       @relation("NotificationReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
   sender    User?      @relation("NotificationSender", fields: [senderId], references: [id], onDelete: SetNull)
@@ -33,74 +33,90 @@ model UserReport {
   id             String       @id @default(cuid())
   reporterId     String
   reportedUserId String
-  reason         String
+  reason         ReportReason
+  details        String?
   status         ReportStatus @default(PENDING)
+  reviewedById   String?
+  reviewedAt     DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  reporter     User @relation("UserReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
-  reportedUser User @relation("UserReportTarget", fields: [reportedUserId], references: [id], onDelete: Restrict)
+  reporter     User  @relation("UserReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  reportedUser User  @relation("UserReportTarget", fields: [reportedUserId], references: [id], onDelete: Restrict)
+  reviewedBy   User? @relation("UserReportReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
 
-  @@index([reporterId])
+  @@index([reporterId, reportedUserId, status])
   @@index([reportedUserId])
-  @@index([status])
-  @@index([createdAt])
+  @@index([status, createdAt, id])
+  @@index([reason, createdAt, id])
   @@map("user_report")
 }
 
 model PostReport {
-  id         String       @id @default(cuid())
-  reporterId String
-  postId     String
-  reason     String
-  status     ReportStatus @default(PENDING)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id           String       @id @default(cuid())
+  reporterId   String
+  postId       String
+  reason       ReportReason
+  details      String?
+  status       ReportStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  reporter User @relation("PostReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
-  post     Post @relation(fields: [postId], references: [id], onDelete: Restrict)
+  reporter   User  @relation("PostReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  post       Post  @relation(fields: [postId], references: [id], onDelete: Restrict)
+  reviewedBy User? @relation("PostReportReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
 
-  @@index([reporterId])
+  @@index([reporterId, postId, status])
   @@index([postId])
-  @@index([status])
-  @@index([createdAt])
+  @@index([status, createdAt, id])
+  @@index([reason, createdAt, id])
   @@map("post_report")
 }
 
 model CommentReport {
-  id         String       @id @default(cuid())
-  reporterId String
-  commentId  String
-  reason     String
-  status     ReportStatus @default(PENDING)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  id           String       @id @default(cuid())
+  reporterId   String
+  commentId    String
+  reason       ReportReason
+  details      String?
+  status       ReportStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  reporter User    @relation("CommentReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
-  comment  Comment @relation(fields: [commentId], references: [id], onDelete: Restrict)
+  reporter   User    @relation("CommentReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  comment    Comment @relation(fields: [commentId], references: [id], onDelete: Restrict)
+  reviewedBy User?   @relation("CommentReportReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
 
-  @@index([reporterId])
+  @@index([reporterId, commentId, status])
   @@index([commentId])
-  @@index([status])
-  @@index([createdAt])
+  @@index([status, createdAt, id])
+  @@index([reason, createdAt, id])
   @@map("comment_report")
 }
 
 model CommunityReport {
-  id          String       @id @default(cuid())
-  reporterId  String
-  communityId String
-  reason      String
-  status      ReportStatus @default(PENDING)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id           String       @id @default(cuid())
+  reporterId   String
+  communityId  String
+  reason       ReportReason
+  details      String?
+  status       ReportStatus @default(PENDING)
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
-  reporter  User      @relation("CommunityReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
-  community Community @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  reporter   User      @relation("CommunityReportReporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  community  Community @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  reviewedBy User?     @relation("CommunityReportReviewer", fields: [reviewedById], references: [id], onDelete: Restrict)
 
-  @@index([reporterId])
+  @@index([reporterId, communityId, status])
   @@index([communityId])
-  @@index([status])
-  @@index([createdAt])
+  @@index([status, createdAt, id])
+  @@index([reason, createdAt, id])
   @@map("community_report")
 }

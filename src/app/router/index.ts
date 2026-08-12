@@ -23,6 +23,7 @@ import { SkillRoutes } from "../module/skill/skill.route";
 import { UserRoutes } from "../module/user/user.route";
 import { CommentVoteRoutes } from "../module/vote/comment-vote.route";
 import { PostVoteRoutes } from "../module/vote/post-vote.route";
+import { ReportRoutes } from "../module/report/report.route";
 
 const router = Router();
 
@@ -44,6 +45,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/comments", route: CommentRoutes },
   { path: "/bookmarks", route: BookmarkRoutes },
   { path: "/notifications", route: NotificationRoutes },
+  { path: "/reports", route: ReportRoutes },
   { path: "/communities", route: CommunityNestedRuleRoutes },
   { path: "/communities", route: CommunityMemberRoutes },
   { path: "/communities", route: CommunityRoutes },

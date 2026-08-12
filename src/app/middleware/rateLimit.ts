@@ -159,3 +159,11 @@ export const notificationMutationRateLimit = createRateLimit({
   keyGenerator: (req) =>
     req.user?.id ? `user:${req.user.id}` : getClientKey(req),
 });
+
+export const reportCreateRateLimit = createRateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Too many report requests. Please try again later.",
+  keyGenerator: (req) =>
+    req.user?.id ? `user:${req.user.id}` : getClientKey(req),
+});

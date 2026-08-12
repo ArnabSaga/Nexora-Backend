@@ -3,6 +3,10 @@ import { Router } from "express";
 import { AuthRoutes } from "../module/auth/auth.route";
 import { CommentRoutes } from "../module/comment/comment.route";
 import { CommunityMemberRoutes } from "../module/community-member/community-member.route";
+import {
+  CommunityNestedRuleRoutes,
+  CommunityRuleRoutes,
+} from "../module/community-rule/community-rule.route";
 import { CommunityRoutes } from "../module/community/community.route";
 import { PostCommentRoutes } from "../module/comment/post-comment.route";
 import { EducationRoutes } from "../module/education/education.route";
@@ -34,8 +38,10 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/comments", route: CommentReactionRoutes },
   { path: "/comments", route: CommentVoteRoutes },
   { path: "/comments", route: CommentRoutes },
+  { path: "/communities", route: CommunityNestedRuleRoutes },
   { path: "/communities", route: CommunityMemberRoutes },
   { path: "/communities", route: CommunityRoutes },
+  { path: "/community-rules", route: CommunityRuleRoutes },
 ];
 
 moduleRoutes.forEach((route) => router.use(route.path, route.route));

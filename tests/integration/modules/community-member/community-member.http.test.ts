@@ -199,10 +199,10 @@ test("Community Member HTTP validation rejects malformed IDs and pagination", as
   assert.equal(excessivePage.status, 400);
 });
 
-test("Core and Member routers share one Community limiter store", async () => {
+test("Core, Member, and Rule routers share one Community limiter store", async () => {
   const targetId = "ck1234567890123456789012";
 
-  for (let index = 0; index < 30; index += 1) {
+  for (let index = 0; index < 20; index += 1) {
     const response = await request({
       userId: users.limit.id,
       method: "DELETE",
@@ -211,13 +211,22 @@ test("Core and Member routers share one Community limiter store", async () => {
     assert.notEqual(response.status, 429, `Member request ${index + 1}`);
   }
 
-  for (let index = 0; index < 30; index += 1) {
+  for (let index = 0; index < 20; index += 1) {
     const response = await request({
       userId: users.limit.id,
       method: "DELETE",
       path: `/api/v1/communities/${targetId}`,
     });
     assert.notEqual(response.status, 429, `Core request ${index + 1}`);
+  }
+
+  for (let index = 0; index < 20; index += 1) {
+    const response = await request({
+      userId: users.limit.id,
+      method: "DELETE",
+      path: `/api/v1/community-rules/${targetId}`,
+    });
+    assert.notEqual(response.status, 429, `Rule request ${index + 1}`);
   }
 
   const blocked = await request({

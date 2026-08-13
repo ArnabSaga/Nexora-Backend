@@ -13,7 +13,7 @@ import {
   buildAvailableParticipationWhere,
   buildCommunityModerationWhere,
 } from "../../../shared/policies/community.policy";
-import { HashtagService } from "./hashtag.service";
+import { createPrismaHashtagWriter } from "../../../shared/hashtags/hashtag-write.prisma.factory";
 import { MentionService } from "./mention.service";
 import { PostMediaService } from "./post-media.service";
 import { PostVisibilityService } from "./post-visibility.service";
@@ -166,7 +166,10 @@ const createMutation = async (
         },
       });
 
-      await HashtagService.syncPostHashtags(tx, createdPost.id, content);
+      await createPrismaHashtagWriter(tx).syncPostHashtags(
+        createdPost.id,
+        content,
+      );
       await MentionService.syncPostMentions(
         tx,
         createdPost.id,
@@ -273,9 +276,11 @@ const updateMutation = async (
   }
 
   return prisma.$transaction(async (tx) => {
-    await tx.post.update({
+    const result = await tx.post.updateMany({
       where: {
         id,
+        authorId: author.id,
+        isDeleted: false,
       },
       data: {
         ...(payload.content !== undefined && { content }),
@@ -284,8 +289,12 @@ const updateMutation = async (
       },
     });
 
+    if (result.count === 0) {
+      throw new AppError(status.NOT_FOUND, "Post not found");
+    }
+
     if (payload.content !== undefined) {
-      await HashtagService.syncPostHashtags(tx, id, content);
+      await createPrismaHashtagWriter(tx).syncPostHashtags(id, content);
     }
 
     const post = await tx.post.findUniqueOrThrow({
@@ -336,7 +345,7 @@ const remove = async (id: string, requester: Express.AuthenticatedUser) => {
     });
 
     if (result.count === 1) {
-      await HashtagService.decrementPostHashtags(tx, post.id);
+      await createPrismaHashtagWriter(tx).decrementPostHashtags(post.id);
     }
   });
 
@@ -439,7 +448,10 @@ const repostMutation = async (
       },
     });
 
-    await HashtagService.syncPostHashtags(tx, createdPost.id, content);
+    await createPrismaHashtagWriter(tx).syncPostHashtags(
+      createdPost.id,
+      content,
+    );
     await (bindings.createNotificationWriter ?? createPrismaNotificationWriter)(
       tx,
     ).writeEvents([

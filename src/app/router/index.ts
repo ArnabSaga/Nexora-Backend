@@ -14,6 +14,7 @@ import { PostCommentRoutes } from "../module/comment/post-comment.route";
 import { EducationRoutes } from "../module/education/education.route";
 import { ExperienceRoutes } from "../module/experience/experience.route";
 import { FollowRoutes } from "../module/follow/follow.route";
+import { HashtagRoutes } from "../module/hashtag/hashtag.route";
 import { PostRoutes } from "../module/post/post.route";
 import { NotificationRoutes } from "../module/notification/notification.route";
 import { ProfileIdentityRoutes } from "../module/profile/profile.route";
@@ -44,6 +45,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/comments", route: CommentVoteRoutes },
   { path: "/comments", route: CommentRoutes },
   { path: "/bookmarks", route: BookmarkRoutes },
+  { path: "/hashtags", route: HashtagRoutes },
   { path: "/notifications", route: NotificationRoutes },
   { path: "/reports", route: ReportRoutes },
   { path: "/communities", route: CommunityNestedRuleRoutes },

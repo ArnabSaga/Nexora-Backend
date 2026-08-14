@@ -14,7 +14,11 @@ import {
   buildCommunityModerationWhere,
 } from "../../../shared/policies/community.policy";
 import { createPrismaHashtagWriter } from "../../../shared/hashtags/hashtag-write.prisma.factory";
-import { MentionService } from "./mention.service";
+import {
+  buildPostMentionEvents,
+  MentionService,
+  type TMentionWriterFactory,
+} from "../../mention";
 import { PostMediaService } from "./post-media.service";
 import { PostVisibilityService } from "./post-visibility.service";
 import { createPrismaNotificationWriter } from "../../../shared/notifications/notification-writer.prisma.factory";
@@ -38,11 +42,21 @@ import {
 type TPostMutationBindings = {
   createPostResponseService: typeof createPrismaPostResponseService;
   createNotificationWriter?: typeof createPrismaNotificationWriter;
+  mentionWriterFactory?: TMentionWriterFactory;
   mediaService: Pick<
     typeof PostMediaService,
     "validateFiles" | "uploadFiles" | "safeCleanupUploadedMedia"
   >;
 };
+
+const createTransactionMentionWriter = (
+  bindings: TPostMutationBindings,
+  client: Prisma.TransactionClient,
+) =>
+  (
+    bindings.mentionWriterFactory ??
+    ((mentionClient) => MentionService.forClient(mentionClient))
+  )(client);
 
 const validateAuthorCanPostInCommunity = async (
   authorId: string,
@@ -91,38 +105,6 @@ const createMediaRows = (
   }));
 };
 
-const validateMentionsBeforeUpload = async (
-  mentionedUserIds: string[] = [],
-) => {
-  const uniqueIds = MentionService.dedupeMentionedUserIds(mentionedUserIds);
-
-  if (!uniqueIds.length) {
-    return uniqueIds;
-  }
-
-  const users = await prisma.user.findMany({
-    where: {
-      id: {
-        in: uniqueIds,
-      },
-      status: "ACTIVE",
-      deletedAt: null,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (users.length !== uniqueIds.length) {
-    throw new AppError(
-      status.BAD_REQUEST,
-      "One or more mentioned users are invalid",
-    );
-  }
-
-  return uniqueIds;
-};
-
 const createMutation = async (
   author: Express.AuthenticatedUser,
   payload: TCreatePostInput,
@@ -134,9 +116,10 @@ const createMutation = async (
   const content = normalizePostContent(payload.content);
   const postType = payload.postType ?? PostType.SHORT;
   const visibility = payload.visibility ?? PostVisibility.PUBLIC;
-  const mentionedUserIds = await validateMentionsBeforeUpload(
-    payload.mentionedUserIds,
+  const mentionedUserIds = MentionService.normalize(
+    payload.mentionedUserIds ?? [],
   );
+  await MentionService.validateUsers(mentionedUserIds);
 
   ensureValidWriteVisibility(visibility, payload.communityId);
 
@@ -170,21 +153,18 @@ const createMutation = async (
         createdPost.id,
         content,
       );
-      await MentionService.syncPostMentions(
+      const insertedMentions = await createTransactionMentionWriter(
+        bindings,
         tx,
-        createdPost.id,
-        mentionedUserIds,
-      );
+      ).syncPost(createdPost.id, mentionedUserIds);
       await (
         bindings.createNotificationWriter ?? createPrismaNotificationWriter
       )(tx).writeEvents(
-        mentionedUserIds.map((receiverId) => ({
-          type: NotificationType.MENTION,
+        buildPostMentionEvents({
           senderId: author.id,
-          receiverId,
-          sourceKey: `MENTION:POST:${createdPost.id}:USER:${receiverId}`,
-          target: { type: "POST" as const, id: createdPost.id },
-        })),
+          postId: createdPost.id,
+          insertedMentions,
+        }),
       );
 
       const post = await tx.post.findUniqueOrThrow({
@@ -252,6 +232,10 @@ const updateMutation = async (
       ? normalizePostContent(payload.content)
       : existing.content;
   const visibility = payload.visibility ?? existing.visibility;
+  const mentionedUserIds =
+    payload.mentionedUserIds === undefined
+      ? undefined
+      : MentionService.normalize(payload.mentionedUserIds);
 
   ensureValidWriteVisibility(visibility, existing.communityId);
 
@@ -295,6 +279,22 @@ const updateMutation = async (
 
     if (payload.content !== undefined) {
       await createPrismaHashtagWriter(tx).syncPostHashtags(id, content);
+    }
+
+    if (mentionedUserIds !== undefined) {
+      const insertedMentions = await createTransactionMentionWriter(
+        bindings,
+        tx,
+      ).syncPost(id, mentionedUserIds);
+      await (
+        bindings.createNotificationWriter ?? createPrismaNotificationWriter
+      )(tx).writeEvents(
+        buildPostMentionEvents({
+          senderId: author.id,
+          postId: id,
+          insertedMentions,
+        }),
+      );
     }
 
     const post = await tx.post.findUniqueOrThrow({
@@ -429,6 +429,9 @@ const repostMutation = async (
   }
 
   const content = normalizePostContent(payload.content);
+  const mentionedUserIds = MentionService.normalize(
+    payload.mentionedUserIds ?? [],
+  );
 
   return prisma.$transaction(async (tx) => {
     const original = await tx.post.findUniqueOrThrow({
@@ -452,15 +455,24 @@ const repostMutation = async (
       createdPost.id,
       content,
     );
+    const insertedMentions = await createTransactionMentionWriter(
+      bindings,
+      tx,
+    ).syncPost(createdPost.id, mentionedUserIds);
     await (bindings.createNotificationWriter ?? createPrismaNotificationWriter)(
       tx,
     ).writeEvents([
+      ...buildPostMentionEvents({
+        senderId: author.id,
+        postId: createdPost.id,
+        insertedMentions,
+      }),
       {
         type: NotificationType.REPOST,
         senderId: author.id,
         receiverId: original.authorId,
         sourceKey: `REPOST:${createdPost.id}`,
-        target: { type: "POST", id: originalId },
+        target: { type: "POST" as const, id: originalId },
       },
     ]);
 
@@ -496,6 +508,7 @@ export const createPostMutationService = (bindings: TPostMutationBindings) => ({
 const PostMutationService = createPostMutationService({
   createPostResponseService: createPrismaPostResponseService,
   createNotificationWriter: createPrismaNotificationWriter,
+  mentionWriterFactory: (client) => MentionService.forClient(client),
   mediaService: PostMediaService,
 });
 

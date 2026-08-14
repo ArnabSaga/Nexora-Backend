@@ -22,7 +22,13 @@ export type TNotificationEvent =
       target: { type: "COMMENT"; id: string; postId: string };
     })
   | (TKeyedEvent & {
-      type: typeof NotificationType.MENTION | typeof NotificationType.REPOST;
+      type: typeof NotificationType.MENTION;
+      target:
+        | { type: "POST"; id: string }
+        | { type: "COMMENT"; id: string; postId: string };
+    })
+  | (TKeyedEvent & {
+      type: typeof NotificationType.REPOST;
       target: { type: "POST"; id: string };
     })
   | (TEventBase & {

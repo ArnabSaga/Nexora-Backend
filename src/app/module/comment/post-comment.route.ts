@@ -14,7 +14,7 @@ router.post(
   commentCreateRateLimit,
   validateRequest({
     params: CommentValidation.postIdParam,
-    body: CommentValidation.body,
+    body: CommentValidation.createBody,
   }),
   CommentController.createComment,
 );

@@ -6,6 +6,7 @@ import type {
 } from "../constants/post.select";
 import type { TVoteReadState } from "../../vote/vote.interface";
 import type { TAvailableOriginalPost, TPostResponse } from "../post.interface";
+import { mapMentionResponse } from "../../mention";
 
 export const normalizePostContent = (content?: string | null) => {
   if (typeof content !== "string") {
@@ -88,19 +89,7 @@ export const mapPost = (post: TPostPayload): TPostResponse => {
       mediaType: media.mediaType,
     })),
     hashtags: post.hashtags.map((item) => item.hashtag),
-    mentions: post.mentions.map((mention) => ({
-      id: mention.id,
-      user: {
-        id: mention.mentionedUser.id,
-        name: mention.mentionedUser.name,
-        username:
-          mention.mentionedUser.profile?.username ?? mention.mentionedUser.id,
-        avatar:
-          mention.mentionedUser.profile?.avatar ??
-          mention.mentionedUser.image ??
-          null,
-      },
-    })),
+    mentions: post.mentions.map(mapMentionResponse),
     counts: {
       commentsCount: post._count.comments,
       reactionsCount: post._count.reactions,

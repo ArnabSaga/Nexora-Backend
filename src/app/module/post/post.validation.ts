@@ -5,8 +5,12 @@ import {
   POST_MAX_LIMIT,
 } from "./constants/post.constant";
 import { scalarPositiveIntegerQuery } from "../../shared/validation/query.validation";
+import { MentionValidation } from "../mention";
 
-const cuidSchema = z.string().trim().regex(/^c[a-z0-9]+$/i, "Invalid id");
+const cuidSchema = z
+  .string()
+  .trim()
+  .regex(/^c[a-z0-9]+$/i, "Invalid id");
 
 const contentSchema = z
   .string()
@@ -54,7 +58,7 @@ const mentionedUserIdsSchema = z.preprocess((value) => {
   }
 
   return value;
-}, z.array(cuidSchema).max(50).optional());
+}, MentionValidation.mentionedUserIds.optional());
 
 const create = z
   .object({
@@ -85,11 +89,16 @@ const update = z
   .object({
     content: contentSchema,
     visibility: z.nativeEnum(PostVisibility).optional(),
+    mentionedUserIds: MentionValidation.mentionedUserIds.optional(),
   })
   .strict()
-  .refine((value) => value.content !== undefined || value.visibility !== undefined, {
-    message: "At least one field is required",
-  });
+  .refine(
+    (value) =>
+      value.content !== undefined ||
+      value.visibility !== undefined ||
+      value.mentionedUserIds !== undefined,
+    { message: "At least one field is required" },
+  );
 
 const repost = z
   .object({
@@ -101,6 +110,7 @@ const repost = z
         PostVisibility.PRIVATE,
       ])
       .optional(),
+    mentionedUserIds: MentionValidation.mentionedUserIds.optional(),
   })
   .strict();
 
@@ -110,7 +120,10 @@ const offsetQuery = z
       min: 1,
       max: Number.MAX_SAFE_INTEGER,
     }).optional(),
-    limit: scalarPositiveIntegerQuery({ min: 1, max: POST_MAX_LIMIT }).optional(),
+    limit: scalarPositiveIntegerQuery({
+      min: 1,
+      max: POST_MAX_LIMIT,
+    }).optional(),
   })
   .strict();
 

@@ -5,6 +5,7 @@ import type {
   PostVisibility,
   VoteType,
 } from "../../../generated/prisma/client";
+import type { TMentionResponse } from "../mention";
 
 export type TCreatePostInput = {
   content?: string;
@@ -17,11 +18,13 @@ export type TCreatePostInput = {
 export type TUpdatePostInput = {
   content?: string;
   visibility?: PostVisibility;
+  mentionedUserIds?: string[];
 };
 
 export type TCreateRepostInput = {
   content?: string;
   visibility?: Extract<PostVisibility, "PUBLIC" | "FOLLOWERS" | "PRIVATE">;
+  mentionedUserIds?: string[];
 };
 
 export type TPostListQuery = {
@@ -51,16 +54,6 @@ export type TCursorMeta = {
   nextCursor: string | null;
   hasNextPage: boolean;
   limit: number;
-};
-
-export type TPostMentionResponse = {
-  id: string;
-  user: {
-    id: string;
-    name: string;
-    username: string;
-    avatar: string | null;
-  };
 };
 
 export type TPostAuthorResponse = {
@@ -135,7 +128,7 @@ export type TPostResponse = {
   } | null;
   media: TPostMediaResponse[];
   hashtags: TPostHashtagResponse[];
-  mentions: TPostMentionResponse[];
+  mentions: TMentionResponse[];
   counts: TPostCountsResponse;
   viewerState: TPostViewerState;
   originalPost: TOriginalPostResponse | null;

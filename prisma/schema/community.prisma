@@ -24,6 +24,9 @@ model Community {
   @@index([visibility])
   @@index([isSuspended])
   @@index([deletedAt, isSuspended, visibility, createdAt])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "community_name_trgm_idx")
+  @@index([slug(ops: raw("gin_trgm_ops"))], type: Gin, map: "community_slug_trgm_idx")
+  @@index([description(ops: raw("gin_trgm_ops"))], type: Gin, map: "community_description_trgm_idx")
   @@map("community")
 }
 

@@ -16,6 +16,10 @@ model Profile {
 
   @@index([username])
   @@index([userId])
+  @@index([username(ops: raw("gin_trgm_ops"))], type: Gin, map: "profile_username_trgm_idx")
+  @@index([headline(ops: raw("gin_trgm_ops"))], type: Gin, map: "profile_headline_trgm_idx")
+  @@index([profession(ops: raw("gin_trgm_ops"))], type: Gin, map: "profile_profession_trgm_idx")
+  @@index([company(ops: raw("gin_trgm_ops"))], type: Gin, map: "profile_company_trgm_idx")
   @@map("profile")
 }
 

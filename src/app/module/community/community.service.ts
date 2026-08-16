@@ -2,7 +2,6 @@ import status from "http-status";
 import {
   CommunityMemberRole,
   CommunityMemberStatus,
-  Prisma,
   UserRole,
 } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
@@ -13,68 +12,16 @@ import {
   AVAILABLE_COMMUNITY_WHERE,
   buildReadableCommunityWhere,
 } from "../../shared/policies/community.policy";
-import { mapPublicUser } from "../user/user.utils";
+import { CommunityResponseService } from "./community-response.service";
+import { mapCommunityResponse } from "./community-response.factory";
 import type {
   TCommunityListQuery,
   TCommunityListResult,
-  TCommunityResponse,
   TCreateCommunityPayload,
   TUpdateCommunityPayload,
 } from "./community.interface";
 import { calculateCommunityPagination } from "./community.pagination";
-import { CommunitySelect, type TCommunityPayload } from "./community.select";
-
-type TViewerMembership = {
-  communityId: string;
-  role: CommunityMemberRole;
-  status: CommunityMemberStatus;
-};
-
-const mapCommunity = (
-  community: TCommunityPayload,
-  membership?: TViewerMembership,
-): TCommunityResponse => ({
-  id: community.id,
-  name: community.name,
-  slug: community.slug,
-  description: community.description ?? null,
-  avatar: community.avatar ?? null,
-  coverPhoto: community.coverPhoto ?? null,
-  visibility: community.visibility,
-  owner: mapPublicUser(community.owner),
-  membersCount: community._count.members,
-  viewerState: {
-    role: membership?.role ?? null,
-    status: membership?.status ?? null,
-  },
-  createdAt: community.createdAt,
-  updatedAt: community.updatedAt,
-});
-
-const getViewerMemberships = async (
-  communityIds: string[],
-  viewer?: Express.AuthenticatedUser,
-) => {
-  if (!viewer || communityIds.length === 0) {
-    return new Map<string, TViewerMembership>();
-  }
-
-  const memberships = await prisma.communityMember.findMany({
-    where: {
-      userId: viewer.id,
-      communityId: { in: [...new Set(communityIds)] },
-    },
-    select: {
-      communityId: true,
-      role: true,
-      status: true,
-    },
-  });
-
-  return new Map(
-    memberships.map((membership) => [membership.communityId, membership]),
-  );
-};
+import { CommunitySelect } from "./community.select";
 
 const createCommunity = async (
   requester: Express.AuthenticatedUser,
@@ -99,7 +46,7 @@ const createCommunity = async (
       select: CommunitySelect.PUBLIC,
     });
 
-    return mapCommunity(community, {
+    return mapCommunityResponse(community, {
       communityId: community.id,
       role: CommunityMemberRole.OWNER,
       status: CommunityMemberStatus.ACTIVE,
@@ -129,15 +76,8 @@ const getCommunities = async (
     }),
     prisma.community.count({ where }),
   ]);
-  const memberships = await getViewerMemberships(
-    communities.map((community) => community.id),
-    viewer,
-  );
-
   return {
-    data: communities.map((community) =>
-      mapCommunity(community, memberships.get(community.id)),
-    ),
+    data: await CommunityResponseService.enrichCommunities(communities, viewer),
     meta: {
       page: pagination.page,
       limit: pagination.limit,
@@ -163,9 +103,7 @@ const getCommunityBySlug = async (
     throw new AppError(status.NOT_FOUND, "Community not found");
   }
 
-  const memberships = await getViewerMemberships([community.id], viewer);
-
-  return mapCommunity(community, memberships.get(community.id));
+  return CommunityResponseService.enrichCommunity(community, viewer);
 };
 
 const updateCommunity = async (
@@ -210,9 +148,7 @@ const updateCommunity = async (
     },
     select: CommunitySelect.PUBLIC,
   });
-  const memberships = await getViewerMemberships([id], requester);
-
-  return mapCommunity(updated, memberships.get(id));
+  return CommunityResponseService.enrichCommunity(updated, requester);
 };
 
 const deleteCommunity = async (

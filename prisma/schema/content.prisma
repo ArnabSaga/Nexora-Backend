@@ -35,6 +35,7 @@ model Post {
   @@index([postType])
   @@index([visibility])
   @@index([createdAt])
+  @@index([content(ops: raw("gin_trgm_ops"))], type: Gin, map: "post_content_trgm_idx")
   @@map("post")
 }
 

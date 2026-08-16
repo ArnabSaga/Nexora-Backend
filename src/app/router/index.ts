@@ -25,6 +25,7 @@ import { UserRoutes } from "../module/user/user.route";
 import { CommentVoteRoutes } from "../module/vote/comment-vote.route";
 import { PostVoteRoutes } from "../module/vote/post-vote.route";
 import { ReportRoutes } from "../module/report/report.route";
+import { SearchRoutes } from "../module/search";
 
 const router = Router();
 
@@ -48,6 +49,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/hashtags", route: HashtagRoutes },
   { path: "/notifications", route: NotificationRoutes },
   { path: "/reports", route: ReportRoutes },
+  { path: "/search", route: SearchRoutes },
   { path: "/communities", route: CommunityNestedRuleRoutes },
   { path: "/communities", route: CommunityMemberRoutes },
   { path: "/communities", route: CommunityRoutes },

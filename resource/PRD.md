@@ -1091,15 +1091,19 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 
 ## 26. Admin API Routes
 
-| Method | Endpoint                               | Access             | Purpose                  |
-| ------ | -------------------------------------- | ------------------ | ------------------------ |
-| GET    | /api/v1/admin/dashboard                | Admin, Super Admin | Get dashboard statistics |
-| GET    | /api/v1/admin/posts                    | Admin, Super Admin | Get all posts            |
-| DELETE | /api/v1/admin/posts/\:id               | Admin, Super Admin | Delete post              |
-| GET    | /api/v1/admin/communities              | Admin, Super Admin | Get all communities      |
-| PATCH  | /api/v1/admin/communities/\:id/suspend | Admin, Super Admin | Suspend community        |
-| GET    | /api/v1/admin/reports                  | Admin, Super Admin | Get all reports          |
-| PATCH  | /api/v1/admin/reports/\:id/resolve     | Admin, Super Admin | Resolve report           |
+| Method | Endpoint                               | Access             | Purpose                                  |
+| ------ | -------------------------------------- | ------------------ | ---------------------------------------- |
+| GET    | /api/v1/admin/dashboard                | Admin, Super Admin | Get operational dashboard statistics     |
+| GET    | /api/v1/admin/posts                    | Admin, Super Admin | Get the Post moderation inventory        |
+| GET    | /api/v1/admin/communities              | Admin, Super Admin | Get the Community moderation inventory   |
+| PATCH  | /api/v1/admin/communities/\:id/status  | Admin, Super Admin | Set Community ACTIVE/SUSPENDED status    |
+
+The Admin namespace contains Admin-specific aggregates, inventories, and Community suspension. Canonical domain mutations remain with their owning feature APIs:
+
+- User administration uses `/api/v1/users`.
+- Report moderation uses `/api/v1/reports`.
+- Post moderation deletion uses `DELETE /api/v1/posts/:id`.
+- Community deletion uses `DELETE /api/v1/communities/:id`.
 
 ---
 

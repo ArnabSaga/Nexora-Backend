@@ -1,5 +1,6 @@
 import status from "http-status";
 import AppError from "../../shared/errors/AppError";
+import { escapeLikePattern } from "../../shared/helpers/escapeLikePattern";
 import {
   SEARCH_DEFAULT_LIMIT,
   SEARCH_DEFAULT_PAGE,
@@ -11,8 +12,7 @@ import {
 } from "./search.constant";
 import type { TNormalizedSearchQuery, TSearchType } from "./search.interface";
 
-export const escapeLikePattern = (value: string) =>
-  value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+export { escapeLikePattern } from "../../shared/helpers/escapeLikePattern";
 
 const isSearchType = (value: unknown): value is TSearchType =>
   typeof value === "string" && SEARCH_TYPES.includes(value as TSearchType);

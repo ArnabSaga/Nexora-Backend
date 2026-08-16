@@ -26,6 +26,7 @@ import { CommentVoteRoutes } from "../module/vote/comment-vote.route";
 import { PostVoteRoutes } from "../module/vote/post-vote.route";
 import { ReportRoutes } from "../module/report/report.route";
 import { SearchRoutes } from "../module/search";
+import { AdminRoutes } from "../module/admin";
 
 const router = Router();
 
@@ -50,6 +51,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/notifications", route: NotificationRoutes },
   { path: "/reports", route: ReportRoutes },
   { path: "/search", route: SearchRoutes },
+  { path: "/admin", route: AdminRoutes },
   { path: "/communities", route: CommunityNestedRuleRoutes },
   { path: "/communities", route: CommunityMemberRoutes },
   { path: "/communities", route: CommunityRoutes },

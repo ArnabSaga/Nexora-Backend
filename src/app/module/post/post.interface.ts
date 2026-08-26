@@ -6,6 +6,7 @@ import type {
   VoteType,
 } from "../../../generated/prisma/client";
 import type { TMentionResponse } from "../mention";
+import type { TUploadedPostAsset } from "../upload";
 
 export type TCreatePostInput = {
   content?: string;
@@ -37,12 +38,7 @@ export type TPostFeedQuery = {
   limit?: number;
 };
 
-export type TUploadedPostMedia = {
-  url: string;
-  publicId: string;
-  resourceType: string;
-  mediaType: MediaType;
-};
+export type TUploadedPostMedia = TUploadedPostAsset;
 
 export type TPostCursorPayload = {
   version: 1;

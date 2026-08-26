@@ -19,7 +19,7 @@ import {
   MentionService,
   type TMentionWriterFactory,
 } from "../../mention";
-import { PostMediaService } from "./post-media.service";
+import { UploadService, type TUploadService } from "../../upload";
 import { PostVisibilityService } from "./post-visibility.service";
 import { createPrismaNotificationWriter } from "../../../shared/notifications/notification-writer.prisma.factory";
 import {
@@ -44,8 +44,8 @@ type TPostMutationBindings = {
   createNotificationWriter?: typeof createPrismaNotificationWriter;
   mentionWriterFactory?: TMentionWriterFactory;
   mediaService: Pick<
-    typeof PostMediaService,
-    "validateFiles" | "uploadFiles" | "safeCleanupUploadedMedia"
+    TUploadService,
+    "validatePostMedia" | "uploadPostMedia" | "safeCleanupUploadedAssets"
   >;
 };
 
@@ -111,7 +111,7 @@ const createMutation = async (
   files: Express.Multer.File[] = [],
   bindings: TPostMutationBindings,
 ) => {
-  bindings.mediaService.validateFiles(files);
+  bindings.mediaService.validatePostMedia(files);
 
   const content = normalizePostContent(payload.content);
   const postType = payload.postType ?? PostType.SHORT;
@@ -129,7 +129,7 @@ const createMutation = async (
 
   await validateAuthorCanPostInCommunity(author.id, payload.communityId);
 
-  const uploadedMedia = await bindings.mediaService.uploadFiles(files);
+  const uploadedMedia = await bindings.mediaService.uploadPostMedia(files);
 
   try {
     const response = await prisma.$transaction(async (tx) => {
@@ -179,7 +179,7 @@ const createMutation = async (
 
     return response;
   } catch (error) {
-    await bindings.mediaService.safeCleanupUploadedMedia(
+    await bindings.mediaService.safeCleanupUploadedAssets(
       uploadedMedia,
       "create-post-transaction-failed",
     );
@@ -509,7 +509,7 @@ const PostMutationService = createPostMutationService({
   createPostResponseService: createPrismaPostResponseService,
   createNotificationWriter: createPrismaNotificationWriter,
   mentionWriterFactory: (client) => MentionService.forClient(client),
-  mediaService: PostMediaService,
+  mediaService: UploadService,
 });
 
 export const PostService = {

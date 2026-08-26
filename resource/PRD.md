@@ -664,14 +664,13 @@ Users can add professional details to their profile, similar to LinkedIn.
 
 ### Description
 
-Users should be able to upload media files for posts and profiles.
+Users upload media only through the Post or Profile mutation that owns it.
 
 ### Functional Requirements
 
-- User can upload a single supported file
-- User can upload multiple supported files
-- User can upload profile avatar
-- User can upload cover image
+- User can attach zero to five supported files to Post creation through the `media` multipart field
+- User can replace a profile avatar through the `file` multipart field
+- User can replace a cover image through the `file` multipart field
 - Uploaded files should be stored in cloud storage
 - System should validate file type
 - System should validate file size
@@ -1109,12 +1108,15 @@ The Admin namespace contains Admin-specific aggregates, inventories, and Communi
 
 ## 27. File Upload API Routes
 
-| Method | Endpoint                 | Access  | Purpose               |
-| ------ | ------------------------ | ------- | --------------------- |
-| POST   | /api/v1/uploads/single   | Private | Upload single file    |
-| POST   | /api/v1/uploads/multiple | Private | Upload multiple files |
+| Method | Endpoint                       | Access  | Multipart Field | Purpose                |
+| ------ | ------------------------------ | ------- | --------------- | ---------------------- |
+| POST   | /api/v1/posts                  | Private | `media`         | Create Post with media |
+| PATCH  | /api/v1/profiles/me/avatar     | Private | `file`          | Replace avatar         |
+| PATCH  | /api/v1/profiles/me/cover      | Private | `file`          | Replace cover image    |
 
-Domain-specific upload flows may also be handled directly by Post and Profile modules.
+Upload is route-free infrastructure. There is no standalone `/api/v1/uploads`
+resource in the MVP. Generic temporary assets, signed direct uploads, and video
+upload remain deferred.
 
 ---
 

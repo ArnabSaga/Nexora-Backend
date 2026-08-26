@@ -4,8 +4,7 @@ import multer from 'multer';
 import { ZodError } from 'zod';
 import { Prisma } from '../../generated/prisma/client';
 import { envVars } from '../config/env';
-import { destroyCloudinaryAssetByUrl } from '../lib/cloudinary';
-import { FILE_UPLOAD } from '../shared/constants/upload.constant';
+import { UPLOAD_MAX_FILE_SIZE_MB } from '../module/upload/upload.constant';
 import AppError from '../shared/errors/AppError';
 import {
   handlePrismaClientInitializationError,
@@ -32,26 +31,6 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
       console.error(`[${method} ${url}] [Syntax Error in Request Body]:`, err.message);
     } else {
       console.error(`[${method} ${url}] Error:`, err);
-    }
-  }
-
-  if (req.file && (req.file as Express.Multer.File).path) {
-    destroyCloudinaryAssetByUrl((req.file as Express.Multer.File).path).catch(console.error);
-  }
-
-  if (req.files) {
-    if (Array.isArray(req.files)) {
-      req.files.forEach((file) => {
-        if (file.path) destroyCloudinaryAssetByUrl(file.path).catch(console.error);
-      });
-    } else {
-      Object.values(req.files).forEach((fileArray) => {
-        if (Array.isArray(fileArray)) {
-          fileArray.forEach((file) => {
-            if (file.path) destroyCloudinaryAssetByUrl(file.path).catch(console.error);
-          });
-        }
-      });
     }
   }
 
@@ -103,7 +82,7 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     statusCode = status.BAD_REQUEST;
     message =
       err.code === 'LIMIT_FILE_SIZE'
-        ? `File size must not exceed ${FILE_UPLOAD.MAX_FILE_SIZE / (1024 * 1024)}MB`
+        ? `File size must not exceed ${UPLOAD_MAX_FILE_SIZE_MB}MB`
         : err.message;
     errorMessages = [
       {

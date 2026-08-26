@@ -605,9 +605,9 @@ test("Post and Comment omission never invokes Mention synchronization", async ()
     createNotificationWriter: () => ({ writeEvents: async () => undefined }),
     mentionWriterFactory,
     mediaService: {
-      validateFiles: () => undefined,
-      uploadFiles: async () => [],
-      safeCleanupUploadedMedia: async () => undefined,
+      validatePostMedia: () => [],
+      uploadPostMedia: async () => [],
+      safeCleanupUploadedAssets: async () => undefined,
     },
   });
   const commentService = createCommentMutationService({
@@ -882,9 +882,9 @@ test("Notification failure rolls back a complete multi-Mention replacement", asy
       },
     }),
     mediaService: {
-      validateFiles: () => undefined,
-      uploadFiles: async () => [],
-      safeCleanupUploadedMedia: async () => undefined,
+      validatePostMedia: () => [],
+      uploadPostMedia: async () => [],
+      safeCleanupUploadedAssets: async () => undefined,
     },
   });
 

@@ -867,9 +867,9 @@ test("Eligible Notification writer failure rolls back Post creation", async () =
       },
     }),
     mediaService: {
-      validateFiles: () => undefined,
-      uploadFiles: async () => [],
-      safeCleanupUploadedMedia: async () => undefined,
+      validatePostMedia: () => [],
+      uploadPostMedia: async () => [],
+      safeCleanupUploadedAssets: async () => undefined,
     },
   });
 

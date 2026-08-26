@@ -4,10 +4,12 @@ import { requireAuth } from "../../middleware/requireAuth";
 import { optionalAuth } from "../../middleware/optionalAuth";
 import { postCreateRateLimit } from "../../middleware/rateLimit";
 import { validateRequest } from "../../middleware/validateRequest";
-import { FILE_UPLOAD } from "../../shared/constants/upload.constant";
-import { POST_MEDIA_MAX_FILES } from "./constants/post.constant";
+import {
+  POST_UPLOAD_MAX_FILES,
+  UPLOAD_MAX_FILE_SIZE,
+  UploadService,
+} from "../upload";
 import { PostController } from "./post.controller";
-import { PostMediaService } from "./services/post-media.service";
 import { PostValidation } from "./post.validation";
 
 const router = Router();
@@ -15,8 +17,8 @@ const router = Router();
 const postMediaUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: FILE_UPLOAD.MAX_FILE_SIZE,
-    files: POST_MEDIA_MAX_FILES,
+    fileSize: UPLOAD_MAX_FILE_SIZE,
+    files: POST_UPLOAD_MAX_FILES,
   },
 });
 
@@ -26,9 +28,7 @@ const validatePostMedia = (
   next: NextFunction,
 ) => {
   try {
-    PostMediaService.validateFiles(
-      Array.isArray(req.files) ? req.files : [],
-    );
+    UploadService.validatePostMedia(Array.isArray(req.files) ? req.files : []);
     next();
   } catch (error) {
     next(error);
@@ -39,7 +39,7 @@ router.post(
   "/",
   requireAuth,
   postCreateRateLimit,
-  postMediaUpload.array("media", POST_MEDIA_MAX_FILES),
+  postMediaUpload.array("media", POST_UPLOAD_MAX_FILES),
   validatePostMedia,
   validateRequest({ body: PostValidation.create }),
   PostController.create,

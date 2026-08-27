@@ -1,17 +1,14 @@
 import status from "http-status";
-import {
-  NotificationType,
-  Prisma,
-  UserRole,
-} from "../../../generated/prisma/client";
+import { NotificationType, Prisma } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
 import { paginationHelper } from "../../shared/helpers/paginationHelper";
 import { ELIGIBLE_COMMENT_WHERE } from "../../shared/policies/comment.policy";
+import { buildAvailableParticipationWhere } from "../../shared/policies/community.policy";
 import {
-  buildAvailableParticipationWhere,
   buildCommunityModerationWhere,
-} from "../../shared/policies/community.policy";
+  hasGlobalContentModerationAuthority,
+} from "../moderation";
 import { PostVisibilityService } from "../post/services/post-visibility.service";
 import { COMMENT_DEFAULT_LIMIT, COMMENT_MAX_LIMIT } from "./comment.constant";
 import {
@@ -414,10 +411,7 @@ const resolveAdminDeleteAuthority = async (
   commentId: string,
   requester: Express.AuthenticatedUser,
 ) => {
-  if (
-    requester.role !== UserRole.ADMIN &&
-    requester.role !== UserRole.SUPER_ADMIN
-  ) {
+  if (!hasGlobalContentModerationAuthority(requester.role)) {
     return null;
   }
 

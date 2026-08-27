@@ -3,7 +3,7 @@ import { reportCreateRateLimit } from "../../middleware/rateLimit";
 import { requireAuth } from "../../middleware/requireAuth";
 import { validateRequest } from "../../middleware/validateRequest";
 import { validateRole } from "../../middleware/validateRole";
-import { UserRole } from "../../../generated/prisma/client";
+import { PLATFORM_REPORT_REVIEW_ROLES } from "../moderation";
 import { ReportController } from "./report.controller";
 import { ReportValidation } from "./report.validation";
 
@@ -20,7 +20,7 @@ router.post(
 router.get(
   "/",
   requireAuth,
-  validateRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validateRole(...PLATFORM_REPORT_REVIEW_ROLES),
   validateRequest({ query: ReportValidation.list }),
   ReportController.getReports,
 );
@@ -28,7 +28,7 @@ router.get(
 router.patch(
   "/:id/status",
   requireAuth,
-  validateRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validateRole(...PLATFORM_REPORT_REVIEW_ROLES),
   validateRequest({
     params: ReportValidation.idParam,
     body: ReportValidation.updateStatus,
@@ -39,7 +39,7 @@ router.patch(
 router.get(
   "/:id",
   requireAuth,
-  validateRole(UserRole.ADMIN, UserRole.SUPER_ADMIN),
+  validateRole(...PLATFORM_REPORT_REVIEW_ROLES),
   validateRequest({ params: ReportValidation.idParam }),
   ReportController.getReportById,
 );

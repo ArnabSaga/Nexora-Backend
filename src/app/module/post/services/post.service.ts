@@ -5,20 +5,20 @@ import {
   PostType,
   PostVisibility,
   Prisma,
-  UserRole,
 } from "../../../../generated/prisma/client";
 import { prisma } from "../../../lib/prisma";
 import AppError from "../../../shared/errors/AppError";
-import {
-  buildAvailableParticipationWhere,
-  buildCommunityModerationWhere,
-} from "../../../shared/policies/community.policy";
+import { buildAvailableParticipationWhere } from "../../../shared/policies/community.policy";
 import { createPrismaHashtagWriter } from "../../../shared/hashtags/hashtag-write.prisma.factory";
 import {
   buildPostMentionEvents,
   MentionService,
   type TMentionWriterFactory,
 } from "../../mention";
+import {
+  buildCommunityModerationWhere,
+  hasGlobalContentModerationAuthority,
+} from "../../moderation";
 import { UploadService, type TUploadService } from "../../upload";
 import { PostVisibilityService } from "./post-visibility.service";
 import { createPrismaNotificationWriter } from "../../../shared/notifications/notification-writer.prisma.factory";
@@ -310,9 +310,7 @@ const updateMutation = async (
 
 const remove = async (id: string, requester: Express.AuthenticatedUser) => {
   await prisma.$transaction(async (tx) => {
-    const isAdmin =
-      requester.role === UserRole.ADMIN ||
-      requester.role === UserRole.SUPER_ADMIN;
+    const isAdmin = hasGlobalContentModerationAuthority(requester.role);
     const post = await tx.post.findFirst({
       where: isAdmin
         ? { id }

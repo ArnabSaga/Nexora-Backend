@@ -2,7 +2,6 @@ import status from "http-status";
 import {
   CommunityMemberRole,
   CommunityMemberStatus,
-  UserRole,
 } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
@@ -12,6 +11,7 @@ import {
   AVAILABLE_COMMUNITY_WHERE,
   buildReadableCommunityWhere,
 } from "../../shared/policies/community.policy";
+import { hasGlobalContentModerationAuthority } from "../moderation";
 import { CommunityResponseService } from "./community-response.service";
 import { mapCommunityResponse } from "./community-response.factory";
 import type {
@@ -159,9 +159,7 @@ const deleteCommunity = async (
     where: { id },
     select: { id: true, ownerId: true, deletedAt: true },
   });
-  const isPlatformAdmin =
-    requester.role === UserRole.ADMIN ||
-    requester.role === UserRole.SUPER_ADMIN;
+  const isPlatformAdmin = hasGlobalContentModerationAuthority(requester.role);
 
   if (!community || (community.ownerId !== requester.id && !isPlatformAdmin)) {
     throw new AppError(status.NOT_FOUND, "Community not found");

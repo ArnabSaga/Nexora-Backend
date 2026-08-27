@@ -18,6 +18,7 @@ let baseUrl = "";
 let closeServer: (() => Promise<void>) | undefined;
 let restoreAuth: (() => void) | undefined;
 let reporterId = "";
+let moderatorId = "";
 let adminId = "";
 let superAdminId = "";
 let limitUserId = "";
@@ -48,6 +49,11 @@ before(async () => {
     label: "http-reporter",
   });
   const admin = await createTestUser({ cleanup, runId, label: "http-admin" });
+  const moderator = await createTestUser({
+    cleanup,
+    runId,
+    label: "http-moderator",
+  });
   const superAdmin = await createTestUser({
     cleanup,
     runId,
@@ -55,6 +61,10 @@ before(async () => {
   });
   const limit = await createTestUser({ cleanup, runId, label: "http-limit" });
   const author = await createTestUser({ cleanup, runId, label: "http-author" });
+  await prisma.user.update({
+    where: { id: moderator.id },
+    data: { role: UserRole.MODERATOR },
+  });
   await prisma.user.update({
     where: { id: admin.id },
     data: { role: UserRole.ADMIN },
@@ -65,6 +75,7 @@ before(async () => {
   });
   const post = await createTestPost({ cleanup, runId, authorId: author.id });
   reporterId = reporter.id;
+  moderatorId = moderator.id;
   adminId = admin.id;
   superAdminId = superAdmin.id;
   limitUserId = limit.id;
@@ -101,6 +112,14 @@ test("Report HTTP routes enforce auth, platform roles, and status precedence", a
     403,
   );
   assert.equal(
+    (await request("GET", "/api/v1/reports?limit=invalid", reporterId)).status,
+    403,
+  );
+  assert.equal(
+    (await request("GET", "/api/v1/reports", moderatorId)).status,
+    200,
+  );
+  assert.equal(
     (await request("GET", "/api/v1/reports?limit=51", adminId)).status,
     400,
   );
@@ -112,10 +131,21 @@ test("Report HTTP routes enforce auth, platform roles, and status precedence", a
     (await request("GET", `/api/v1/reports/${reportId}`, superAdminId)).status,
     200,
   );
+  const moderatorDetail = await request(
+    "GET",
+    `/api/v1/reports/${reportId}`,
+    moderatorId,
+  );
+  assert.equal(moderatorDetail.status, 200);
+  assert.equal(
+    typeof (moderatorDetail.body as { data: { reporter: { email: string } } })
+      .data.reporter.email,
+    "string",
+  );
   const updated = await request(
     "PATCH",
     `/api/v1/reports/${reportId}/status`,
-    adminId,
+    moderatorId,
     { status: "REVIEWED" },
   );
   assert.equal(updated.status, 200);

@@ -87,13 +87,29 @@ System-level administrators with complete platform control.
 | Role        | Description                | Key Permissions                                                    |
 | ----------- | -------------------------- | ------------------------------------------------------------------ |
 | User        | Default platform member    | Create posts, comment, react, vote, follow users, join communities |
-| Moderator   | Platform moderation role   | Moderate according to specifically assigned platform permissions   |
+| Moderator   | Platform moderation role   | Review Reports through the existing Report workflow                |
 | Admin       | Platform-level manager     | Manage users, posts, communities, reports, and moderation          |
 | Super Admin | Full system owner          | Full access to all platform-level controls                         |
 
 Community roles are managed separately from platform roles.
 
 A platform Moderator does not automatically receive permission to moderate every community.
+
+Platform and Community roles are independent and additive. In the MVP, a
+platform Moderator may list, inspect, and transition Reports but receives no
+global content-deletion, Community-suspension, User-management, or Admin-panel
+authority. Community moderation instead applies when the requester owns an
+available Community or has an ACTIVE OWNER, ADMIN, or MODERATOR membership in
+that Community. Community ownership does not require a matching membership row.
+
+| Platform role | Community role | Report review | Global moderation | Scoped Community moderation | Admin/User APIs |
+| ------------- | -------------- | ------------: | ----------------: | ---------------------------: | --------------: |
+| USER          | MEMBER         |            No |                No |                           No |              No |
+| USER          | MODERATOR      |            No |                No |    Active assigned Community |              No |
+| MODERATOR     | MEMBER         |           Yes |                No |                           No |              No |
+| MODERATOR     | MODERATOR      |           Yes |                No |    Active assigned Community |              No |
+| ADMIN         | MEMBER         |           Yes |               Yes | Global authority where supported |         Yes |
+| SUPER_ADMIN   | MEMBER         |           Yes |               Yes | Global authority where supported |         Yes |
 
 ---
 
@@ -585,13 +601,15 @@ Users can report harmful, abusive, misleading, spam, or inappropriate content.
 ### Functional Requirements
 
 - User can create a report
-- Admin can view all reports
-- Admin can filter reports by status
-- Admin can view single report details
-- Admin can update report status
+- Moderator, Admin, or Super Admin can view all reports
+- Moderator, Admin, or Super Admin can filter reports by status
+- Moderator, Admin, or Super Admin can view single report details
+- Moderator, Admin, or Super Admin can update report status
 - Admin can take action based on report
 - Report creation should be rate-limited
 - Future AI moderation may assist with report prioritization
+- Updating Report workflow status does not automatically mutate its target
+- All Report reviewers receive the same existing Report DTO in the MVP
 
 ---
 
@@ -919,7 +937,7 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 | POST   | /api/v1/posts/\:id/repost             | Private                        | Repost another post        |
 | GET    | /api/v1/posts/\:id                    | Public or Private              | Get visible single post    |
 | PATCH  | /api/v1/posts/\:id                    | Post Owner                     | Update post                |
-| DELETE | /api/v1/posts/\:id                    | Post Owner, Admin, Super Admin | Soft-delete post           |
+| DELETE | /api/v1/posts/\:id                    | Post Owner, Platform Admin/Super Admin, or scoped Community Owner/Admin/Moderator | Soft-delete post |
 
 ---
 
@@ -931,7 +949,7 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 | GET    | /api/v1/posts/\:postId/comments      | Public or Private                                      | Get visible comments   |
 | POST   | /api/v1/comments/\:commentId/replies | Private                                                | Reply to comment       |
 | PATCH  | /api/v1/comments/\:id                | Comment Owner                                          | Update comment         |
-| DELETE | /api/v1/comments/\:id                | Comment Owner, Admin, Super Admin, Community Moderator | Delete comment         |
+| DELETE | /api/v1/comments/\:id                | Comment Owner, Platform Admin/Super Admin, or scoped Community Owner/Admin/Moderator | Delete comment |
 
 ---
 
@@ -982,6 +1000,7 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 | DELETE | /api/v1/communities/\:id/leave                          | Private                              | Leave community         |
 | GET    | /api/v1/communities/\:id/members                        | Public or Community Member           | Get community members   |
 | PATCH  | /api/v1/communities/\:communityId/members/\:userId/role | Community Owner or Admin             | Update member role      |
+| PATCH  | /api/v1/communities/\:communityId/members/\:userId/status | Community Owner or Admin           | Update membership status |
 | DELETE | /api/v1/communities/\:communityId/members/\:userId      | Community Owner, Admin, or Moderator | Remove community member |
 
 ---
@@ -1023,9 +1042,9 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 | Method | Endpoint                    | Access             | Purpose              |
 | ------ | --------------------------- | ------------------ | -------------------- |
 | POST   | /api/v1/reports             | Private            | Create report        |
-| GET    | /api/v1/reports             | Admin, Super Admin | Get all reports      |
-| GET    | /api/v1/reports/\:id        | Admin, Super Admin | Get single report    |
-| PATCH  | /api/v1/reports/\:id/status | Admin, Super Admin | Update report status |
+| GET    | /api/v1/reports             | Moderator, Admin, Super Admin | Get all reports      |
+| GET    | /api/v1/reports/\:id        | Moderator, Admin, Super Admin | Get single report    |
+| PATCH  | /api/v1/reports/\:id/status | Moderator, Admin, Super Admin | Update report status |
 
 ---
 
@@ -1161,8 +1180,8 @@ These routes are planned for later versions and are not required for the initial
 
 | Method | Endpoint                                     | Access             | Purpose                        |
 | ------ | -------------------------------------------- | ------------------ | ------------------------------ |
-| POST   | /api/v1/ai/moderation/analyze               | Admin, Super Admin | Analyze reported content       |
-| GET    | /api/v1/ai/moderation/reports/\:reportId    | Admin, Super Admin | View AI moderation assessment  |
+| POST   | /api/v1/ai/moderation/analyze               | Moderator, Admin, Super Admin | Analyze reported content      |
+| GET    | /api/v1/ai/moderation/reports/\:reportId    | Moderator, Admin, Super Admin | View AI moderation assessment |
 
 ---
 

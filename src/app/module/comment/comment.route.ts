@@ -13,7 +13,7 @@ router.post(
   commentCreateRateLimit,
   validateRequest({
     params: CommentValidation.commentIdParam,
-    body: CommentValidation.body,
+    body: CommentValidation.createBody,
   }),
   CommentController.createReply,
 );
@@ -23,7 +23,7 @@ router.patch(
   requireAuth,
   validateRequest({
     params: CommentValidation.idParam,
-    body: CommentValidation.body,
+    body: CommentValidation.updateBody,
   }),
   CommentController.updateComment,
 );

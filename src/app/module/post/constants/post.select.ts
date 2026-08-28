@@ -1,4 +1,5 @@
 import type { Prisma } from "../../../../generated/prisma/client";
+import { POST_MENTIONS_RELATION_ARGS } from "../../mention";
 import { DISPLAYABLE_POST_COMMENT_WHERE } from "../../../shared/policies/comment.policy";
 
 const AUTHOR = {
@@ -39,23 +40,6 @@ const HASHTAG = {
     },
   },
 } satisfies Prisma.PostHashtagSelect;
-
-const MENTION = {
-  id: true,
-  mentionedUser: {
-    select: {
-      id: true,
-      name: true,
-      image: true,
-      profile: {
-        select: {
-          username: true,
-          avatar: true,
-        },
-      },
-    },
-  },
-} satisfies Prisma.PostMentionSelect;
 
 const COUNT = {
   // Normal-display count: eligible top-level comments and eligible direct replies.
@@ -116,9 +100,7 @@ const FEED = {
   hashtags: {
     select: HASHTAG,
   },
-  mentions: {
-    select: MENTION,
-  },
+  mentions: POST_MENTIONS_RELATION_ARGS,
   _count: {
     select: COUNT,
   },
@@ -129,7 +111,6 @@ export const PostSelect = {
   MEDIA,
   COMMUNITY,
   HASHTAG,
-  MENTION,
   COUNT,
   ORIGINAL_POST,
   PUBLIC: FEED,

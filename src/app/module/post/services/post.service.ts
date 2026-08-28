@@ -5,17 +5,21 @@ import {
   PostType,
   PostVisibility,
   Prisma,
-  UserRole,
 } from "../../../../generated/prisma/client";
 import { prisma } from "../../../lib/prisma";
 import AppError from "../../../shared/errors/AppError";
+import { buildAvailableParticipationWhere } from "../../../shared/policies/community.policy";
+import { createPrismaHashtagWriter } from "../../../shared/hashtags/hashtag-write.prisma.factory";
 import {
-  buildAvailableParticipationWhere,
+  buildPostMentionEvents,
+  MentionService,
+  type TMentionWriterFactory,
+} from "../../mention";
+import {
   buildCommunityModerationWhere,
-} from "../../../shared/policies/community.policy";
-import { HashtagService } from "./hashtag.service";
-import { MentionService } from "./mention.service";
-import { PostMediaService } from "./post-media.service";
+  hasGlobalContentModerationAuthority,
+} from "../../moderation";
+import { UploadService, type TUploadService } from "../../upload";
 import { PostVisibilityService } from "./post-visibility.service";
 import { createPrismaNotificationWriter } from "../../../shared/notifications/notification-writer.prisma.factory";
 import {
@@ -38,11 +42,21 @@ import {
 type TPostMutationBindings = {
   createPostResponseService: typeof createPrismaPostResponseService;
   createNotificationWriter?: typeof createPrismaNotificationWriter;
+  mentionWriterFactory?: TMentionWriterFactory;
   mediaService: Pick<
-    typeof PostMediaService,
-    "validateFiles" | "uploadFiles" | "safeCleanupUploadedMedia"
+    TUploadService,
+    "validatePostMedia" | "uploadPostMedia" | "safeCleanupUploadedAssets"
   >;
 };
+
+const createTransactionMentionWriter = (
+  bindings: TPostMutationBindings,
+  client: Prisma.TransactionClient,
+) =>
+  (
+    bindings.mentionWriterFactory ??
+    ((mentionClient) => MentionService.forClient(mentionClient))
+  )(client);
 
 const validateAuthorCanPostInCommunity = async (
   authorId: string,
@@ -91,52 +105,21 @@ const createMediaRows = (
   }));
 };
 
-const validateMentionsBeforeUpload = async (
-  mentionedUserIds: string[] = [],
-) => {
-  const uniqueIds = MentionService.dedupeMentionedUserIds(mentionedUserIds);
-
-  if (!uniqueIds.length) {
-    return uniqueIds;
-  }
-
-  const users = await prisma.user.findMany({
-    where: {
-      id: {
-        in: uniqueIds,
-      },
-      status: "ACTIVE",
-      deletedAt: null,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (users.length !== uniqueIds.length) {
-    throw new AppError(
-      status.BAD_REQUEST,
-      "One or more mentioned users are invalid",
-    );
-  }
-
-  return uniqueIds;
-};
-
 const createMutation = async (
   author: Express.AuthenticatedUser,
   payload: TCreatePostInput,
   files: Express.Multer.File[] = [],
   bindings: TPostMutationBindings,
 ) => {
-  bindings.mediaService.validateFiles(files);
+  bindings.mediaService.validatePostMedia(files);
 
   const content = normalizePostContent(payload.content);
   const postType = payload.postType ?? PostType.SHORT;
   const visibility = payload.visibility ?? PostVisibility.PUBLIC;
-  const mentionedUserIds = await validateMentionsBeforeUpload(
-    payload.mentionedUserIds,
+  const mentionedUserIds = MentionService.normalize(
+    payload.mentionedUserIds ?? [],
   );
+  await MentionService.validateUsers(mentionedUserIds);
 
   ensureValidWriteVisibility(visibility, payload.communityId);
 
@@ -146,7 +129,7 @@ const createMutation = async (
 
   await validateAuthorCanPostInCommunity(author.id, payload.communityId);
 
-  const uploadedMedia = await bindings.mediaService.uploadFiles(files);
+  const uploadedMedia = await bindings.mediaService.uploadPostMedia(files);
 
   try {
     const response = await prisma.$transaction(async (tx) => {
@@ -166,22 +149,22 @@ const createMutation = async (
         },
       });
 
-      await HashtagService.syncPostHashtags(tx, createdPost.id, content);
-      await MentionService.syncPostMentions(
-        tx,
+      await createPrismaHashtagWriter(tx).syncPostHashtags(
         createdPost.id,
-        mentionedUserIds,
+        content,
       );
+      const insertedMentions = await createTransactionMentionWriter(
+        bindings,
+        tx,
+      ).syncPost(createdPost.id, mentionedUserIds);
       await (
         bindings.createNotificationWriter ?? createPrismaNotificationWriter
       )(tx).writeEvents(
-        mentionedUserIds.map((receiverId) => ({
-          type: NotificationType.MENTION,
+        buildPostMentionEvents({
           senderId: author.id,
-          receiverId,
-          sourceKey: `MENTION:POST:${createdPost.id}:USER:${receiverId}`,
-          target: { type: "POST" as const, id: createdPost.id },
-        })),
+          postId: createdPost.id,
+          insertedMentions,
+        }),
       );
 
       const post = await tx.post.findUniqueOrThrow({
@@ -196,7 +179,7 @@ const createMutation = async (
 
     return response;
   } catch (error) {
-    await bindings.mediaService.safeCleanupUploadedMedia(
+    await bindings.mediaService.safeCleanupUploadedAssets(
       uploadedMedia,
       "create-post-transaction-failed",
     );
@@ -249,6 +232,10 @@ const updateMutation = async (
       ? normalizePostContent(payload.content)
       : existing.content;
   const visibility = payload.visibility ?? existing.visibility;
+  const mentionedUserIds =
+    payload.mentionedUserIds === undefined
+      ? undefined
+      : MentionService.normalize(payload.mentionedUserIds);
 
   ensureValidWriteVisibility(visibility, existing.communityId);
 
@@ -273,9 +260,11 @@ const updateMutation = async (
   }
 
   return prisma.$transaction(async (tx) => {
-    await tx.post.update({
+    const result = await tx.post.updateMany({
       where: {
         id,
+        authorId: author.id,
+        isDeleted: false,
       },
       data: {
         ...(payload.content !== undefined && { content }),
@@ -284,8 +273,28 @@ const updateMutation = async (
       },
     });
 
+    if (result.count === 0) {
+      throw new AppError(status.NOT_FOUND, "Post not found");
+    }
+
     if (payload.content !== undefined) {
-      await HashtagService.syncPostHashtags(tx, id, content);
+      await createPrismaHashtagWriter(tx).syncPostHashtags(id, content);
+    }
+
+    if (mentionedUserIds !== undefined) {
+      const insertedMentions = await createTransactionMentionWriter(
+        bindings,
+        tx,
+      ).syncPost(id, mentionedUserIds);
+      await (
+        bindings.createNotificationWriter ?? createPrismaNotificationWriter
+      )(tx).writeEvents(
+        buildPostMentionEvents({
+          senderId: author.id,
+          postId: id,
+          insertedMentions,
+        }),
+      );
     }
 
     const post = await tx.post.findUniqueOrThrow({
@@ -301,9 +310,7 @@ const updateMutation = async (
 
 const remove = async (id: string, requester: Express.AuthenticatedUser) => {
   await prisma.$transaction(async (tx) => {
-    const isAdmin =
-      requester.role === UserRole.ADMIN ||
-      requester.role === UserRole.SUPER_ADMIN;
+    const isAdmin = hasGlobalContentModerationAuthority(requester.role);
     const post = await tx.post.findFirst({
       where: isAdmin
         ? { id }
@@ -336,7 +343,7 @@ const remove = async (id: string, requester: Express.AuthenticatedUser) => {
     });
 
     if (result.count === 1) {
-      await HashtagService.decrementPostHashtags(tx, post.id);
+      await createPrismaHashtagWriter(tx).decrementPostHashtags(post.id);
     }
   });
 
@@ -420,6 +427,9 @@ const repostMutation = async (
   }
 
   const content = normalizePostContent(payload.content);
+  const mentionedUserIds = MentionService.normalize(
+    payload.mentionedUserIds ?? [],
+  );
 
   return prisma.$transaction(async (tx) => {
     const original = await tx.post.findUniqueOrThrow({
@@ -439,16 +449,28 @@ const repostMutation = async (
       },
     });
 
-    await HashtagService.syncPostHashtags(tx, createdPost.id, content);
+    await createPrismaHashtagWriter(tx).syncPostHashtags(
+      createdPost.id,
+      content,
+    );
+    const insertedMentions = await createTransactionMentionWriter(
+      bindings,
+      tx,
+    ).syncPost(createdPost.id, mentionedUserIds);
     await (bindings.createNotificationWriter ?? createPrismaNotificationWriter)(
       tx,
     ).writeEvents([
+      ...buildPostMentionEvents({
+        senderId: author.id,
+        postId: createdPost.id,
+        insertedMentions,
+      }),
       {
         type: NotificationType.REPOST,
         senderId: author.id,
         receiverId: original.authorId,
         sourceKey: `REPOST:${createdPost.id}`,
-        target: { type: "POST", id: originalId },
+        target: { type: "POST" as const, id: originalId },
       },
     ]);
 
@@ -484,7 +506,8 @@ export const createPostMutationService = (bindings: TPostMutationBindings) => ({
 const PostMutationService = createPostMutationService({
   createPostResponseService: createPrismaPostResponseService,
   createNotificationWriter: createPrismaNotificationWriter,
-  mediaService: PostMediaService,
+  mentionWriterFactory: (client) => MentionService.forClient(client),
+  mediaService: UploadService,
 });
 
 export const PostService = {

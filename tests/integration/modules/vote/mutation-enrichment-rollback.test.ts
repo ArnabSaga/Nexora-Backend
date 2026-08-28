@@ -7,7 +7,6 @@ import {
 } from "../../../../src/generated/prisma/client";
 import { prisma } from "../../../../src/app/lib/prisma";
 import { createCommentMutationService } from "../../../../src/app/module/comment/comment.service";
-import { createPostMediaCleanupService } from "../../../../src/app/module/post/services/post-media-cleanup.factory";
 import { createPrismaPostResponseService } from "../../../../src/app/module/post/services/post-response.service";
 import { createPostMutationService } from "../../../../src/app/module/post/services/post.service";
 import { createVoteMutationService } from "../../../../src/app/module/vote/vote.service";
@@ -70,21 +69,13 @@ const failingPostResponseService = () => ({
 const fakeMediaService = ({ cleanupFails = false } = {}) => {
   const cleanupCalls: Array<{ publicIds: string[]; operation: string }> = [];
   const cleanupWarnings: unknown[][] = [];
-  const cleanupService = createPostMediaCleanupService({
-    destroy: cleanupFails
-      ? () => {
-          throw new Error("Injected cleanup failure");
-        }
-      : async () => undefined,
-    warn: (...args) => cleanupWarnings.push(args),
-  });
 
   return {
     cleanupCalls,
     cleanupWarnings,
     service: {
-      validateFiles: () => undefined,
-      uploadFiles: async () => [
+      validatePostMedia: () => [],
+      uploadPostMedia: async () => [
         {
           url: "https://example.test/rollback.jpg",
           publicId: `${runId}-rollback-media`,
@@ -92,7 +83,7 @@ const fakeMediaService = ({ cleanupFails = false } = {}) => {
           mediaType: MediaType.IMAGE,
         },
       ],
-      safeCleanupUploadedMedia: async (
+      safeCleanupUploadedAssets: async (
         media: Array<{ publicId: string }>,
         operation: string,
       ) => {
@@ -100,15 +91,9 @@ const fakeMediaService = ({ cleanupFails = false } = {}) => {
           publicIds: media.map((item) => item.publicId),
           operation,
         });
-        await cleanupService.safeCleanupUploadedMedia(
-          media.map((item) => ({
-            url: "https://example.test/rollback.jpg",
-            publicId: item.publicId,
-            resourceType: "image",
-            mediaType: MediaType.IMAGE,
-          })),
-          operation,
-        );
+        if (cleanupFails) {
+          cleanupWarnings.push(["Upload asset cleanup failed", { operation }]);
+        }
       },
     },
   };

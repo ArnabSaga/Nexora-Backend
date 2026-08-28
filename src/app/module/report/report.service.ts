@@ -11,6 +11,7 @@ import { DISPLAYABLE_POST_COMMENT_WHERE } from "../../shared/policies/comment.po
 import { buildReadableCommunityWhere } from "../../shared/policies/community.policy";
 import { ACTIVE_PUBLIC_USER_WHERE } from "../../shared/policies/user.policy";
 import { PostVisibilityService } from "../post/services/post-visibility.service";
+import { assertCanReviewReports } from "../moderation";
 import {
   REPORT_DEFAULT_LIMIT,
   REPORT_EXCERPT_LENGTH,
@@ -457,7 +458,11 @@ const validateLimit = (value?: number) => {
   return limit;
 };
 
-const getReports = async (query: TReportListQuery) => {
+const getReports = async (
+  requester: Express.AuthenticatedUser,
+  query: TReportListQuery,
+) => {
+  assertCanReviewReports(requester);
   const limit = validateLimit(query.limit);
   const cursor = decodeReportCursor(query.cursor);
   const types = query.targetType
@@ -564,8 +569,13 @@ const getReports = async (query: TReportListQuery) => {
   };
 };
 
-const getReportById = async (id: string) =>
-  (await resolveReportById(id)).response;
+const getReportById = async (
+  requester: Express.AuthenticatedUser,
+  id: string,
+) => {
+  assertCanReviewReports(requester);
+  return (await resolveReportById(id)).response;
+};
 
 const getSingleTransition = (
   rows: TReportTransition[],
@@ -597,10 +607,11 @@ const mapReviewer = (
 });
 
 const updateReportStatus = async (
+  reviewer: Express.AuthenticatedUser,
   id: string,
   requestedStatus: ReportStatus,
-  reviewer: Express.AuthenticatedUser,
 ) => {
+  assertCanReviewReports(reviewer);
   const statusService = createReportStatusService<TReportResponse>({
     read: async () => (await resolveReportById(id)).response,
     compareAndSwap: async (current, requested) => {

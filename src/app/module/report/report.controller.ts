@@ -13,7 +13,7 @@ const createReport = catchAsync(async (req, res) => {
 });
 
 const getReports = catchAsync(async (req, res) => {
-  const result = await ReportService.getReports(req.query);
+  const result = await ReportService.getReports(req.user!, req.query);
   sendResponse(res, {
     statusCode: 200,
     success: true,
@@ -24,7 +24,10 @@ const getReports = catchAsync(async (req, res) => {
 });
 
 const getReportById = catchAsync(async (req, res) => {
-  const data = await ReportService.getReportById(req.params.id as string);
+  const data = await ReportService.getReportById(
+    req.user!,
+    req.params.id as string,
+  );
   sendResponse(res, {
     statusCode: 200,
     success: true,
@@ -35,9 +38,9 @@ const getReportById = catchAsync(async (req, res) => {
 
 const updateReportStatus = catchAsync(async (req, res) => {
   const data = await ReportService.updateReportStatus(
+    req.user!,
     req.params.id as string,
     req.body.status,
-    req.user!,
   );
   sendResponse(res, {
     statusCode: 200,

@@ -8,6 +8,7 @@ model Hashtag {
 
   @@index([name])
   @@index([postCount])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "hashtag_name_trgm_idx")
   @@map("hashtag")
 }
 
@@ -35,6 +36,7 @@ model PostMention {
   mentionedUser User @relation("PostMentionedUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
   post          Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
+  @@unique([postId, mentionedUserId])
   @@index([mentionedUserId])
   @@index([postId])
   @@map("post_mention")
@@ -49,6 +51,7 @@ model CommentMention {
   mentionedUser User    @relation("CommentMentionedUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
   comment       Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
 
+  @@unique([commentId, mentionedUserId])
   @@index([mentionedUserId])
   @@index([commentId])
   @@map("comment_mention")

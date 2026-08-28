@@ -1,31 +1,19 @@
 import { Router } from "express";
 import multer from "multer";
-import {
-  imageFileFilter,
-  profileAvatarStorage,
-  profileCoverStorage,
-} from "../../lib/cloudinary";
+import { profileMediaMutationRateLimit } from "../../middleware/rateLimit";
 import { requireAuth } from "../../middleware/requireAuth";
 import { validateRequest } from "../../middleware/validateRequest";
-import { FILE_UPLOAD } from "../../shared/constants/upload.constant";
+import { UPLOAD_MAX_FILE_SIZE } from "../upload";
 import { ProfileController } from "./profile.controller";
 import { ProfileValidation } from "./profile.validation";
 
 const profileIdentityRouter = Router();
 
-const avatarUpload = multer({
-  storage: profileAvatarStorage,
-  fileFilter: imageFileFilter,
+const profileMediaUpload = multer({
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: FILE_UPLOAD.MAX_FILE_SIZE,
-  },
-});
-
-const coverUpload = multer({
-  storage: profileCoverStorage,
-  fileFilter: imageFileFilter,
-  limits: {
-    fileSize: FILE_UPLOAD.MAX_FILE_SIZE,
+    fileSize: UPLOAD_MAX_FILE_SIZE,
+    files: 1,
   },
 });
 
@@ -41,14 +29,16 @@ profileIdentityRouter.patch(
 profileIdentityRouter.patch(
   "/me/avatar",
   requireAuth,
-  avatarUpload.single("file"),
+  profileMediaMutationRateLimit,
+  profileMediaUpload.single("file"),
   ProfileController.updateAvatar,
 );
 
 profileIdentityRouter.patch(
   "/me/cover",
   requireAuth,
-  coverUpload.single("file"),
+  profileMediaMutationRateLimit,
+  profileMediaUpload.single("file"),
   ProfileController.updateCover,
 );
 

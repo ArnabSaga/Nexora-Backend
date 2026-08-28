@@ -1,4 +1,5 @@
 import type { Prisma } from "../../../generated/prisma/client";
+import { COMMENT_MENTIONS_RELATION_ARGS } from "../mention";
 import { DISPLAYABLE_DIRECT_REPLY_WHERE } from "../../shared/policies/comment.policy";
 
 const AUTHOR = {
@@ -24,6 +25,7 @@ const REPLY = {
   author: {
     select: AUTHOR,
   },
+  mentions: COMMENT_MENTIONS_RELATION_ARGS,
   _count: {
     select: {
       reactions: true,
@@ -42,6 +44,7 @@ const PUBLIC = {
   author: {
     select: AUTHOR,
   },
+  mentions: COMMENT_MENTIONS_RELATION_ARGS,
   replies: {
     where: DISPLAYABLE_DIRECT_REPLY_WHERE,
     orderBy: [

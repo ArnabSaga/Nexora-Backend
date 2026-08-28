@@ -87,13 +87,29 @@ System-level administrators with complete platform control.
 | Role        | Description                | Key Permissions                                                    |
 | ----------- | -------------------------- | ------------------------------------------------------------------ |
 | User        | Default platform member    | Create posts, comment, react, vote, follow users, join communities |
-| Moderator   | Platform moderation role   | Moderate according to specifically assigned platform permissions   |
+| Moderator   | Platform moderation role   | Review Reports through the existing Report workflow                |
 | Admin       | Platform-level manager     | Manage users, posts, communities, reports, and moderation          |
 | Super Admin | Full system owner          | Full access to all platform-level controls                         |
 
 Community roles are managed separately from platform roles.
 
 A platform Moderator does not automatically receive permission to moderate every community.
+
+Platform and Community roles are independent and additive. In the MVP, a
+platform Moderator may list, inspect, and transition Reports but receives no
+global content-deletion, Community-suspension, User-management, or Admin-panel
+authority. Community moderation instead applies when the requester owns an
+available Community or has an ACTIVE OWNER, ADMIN, or MODERATOR membership in
+that Community. Community ownership does not require a matching membership row.
+
+| Platform role | Community role | Report review | Global moderation | Scoped Community moderation | Admin/User APIs |
+| ------------- | -------------- | ------------: | ----------------: | ---------------------------: | --------------: |
+| USER          | MEMBER         |            No |                No |                           No |              No |
+| USER          | MODERATOR      |            No |                No |    Active assigned Community |              No |
+| MODERATOR     | MEMBER         |           Yes |                No |                           No |              No |
+| MODERATOR     | MODERATOR      |           Yes |                No |    Active assigned Community |              No |
+| ADMIN         | MEMBER         |           Yes |               Yes | Global authority where supported |         Yes |
+| SUPER_ADMIN   | MEMBER         |           Yes |               Yes | Global authority where supported |         Yes |
 
 ---
 
@@ -585,13 +601,15 @@ Users can report harmful, abusive, misleading, spam, or inappropriate content.
 ### Functional Requirements
 
 - User can create a report
-- Admin can view all reports
-- Admin can filter reports by status
-- Admin can view single report details
-- Admin can update report status
+- Moderator, Admin, or Super Admin can view all reports
+- Moderator, Admin, or Super Admin can filter reports by status
+- Moderator, Admin, or Super Admin can view single report details
+- Moderator, Admin, or Super Admin can update report status
 - Admin can take action based on report
 - Report creation should be rate-limited
 - Future AI moderation may assist with report prioritization
+- Updating Report workflow status does not automatically mutate its target
+- All Report reviewers receive the same existing Report DTO in the MVP
 
 ---
 
@@ -664,14 +682,13 @@ Users can add professional details to their profile, similar to LinkedIn.
 
 ### Description
 
-Users should be able to upload media files for posts and profiles.
+Users upload media only through the Post or Profile mutation that owns it.
 
 ### Functional Requirements
 
-- User can upload a single supported file
-- User can upload multiple supported files
-- User can upload profile avatar
-- User can upload cover image
+- User can attach zero to five supported files to Post creation through the `media` multipart field
+- User can replace a profile avatar through the `file` multipart field
+- User can replace a cover image through the `file` multipart field
 - Uploaded files should be stored in cloud storage
 - System should validate file type
 - System should validate file size
@@ -704,15 +721,17 @@ Admins need a centralized panel to control users, content, communities, reports,
 
 ---
 
-## 7.19 Future AI Intelligence System
+## 7.19 AI Intelligence System
 
 ### Description
 
-Nexora will introduce a dedicated AI Intelligence System in future versions.
+Nexora introduces AI through a staged, provider-neutral Intelligence System.
 
 The AI system will help users create better content, understand discussions, discover relevant information, receive personalized recommendations, and interact with platform knowledge.
 
-AI will operate as an enhancement layer and must never replace authentication, authorization, visibility, privacy, database integrity, or moderation authority.
+The first release provides stateless content suggestions only. AI operates as
+an enhancement layer and never replaces authentication, authorization,
+visibility, privacy, database integrity, or moderation authority.
 
 ### AI Capability Areas
 
@@ -733,22 +752,19 @@ AI will operate as an enhancement layer and must never replace authentication, a
 
 ### Functional Requirements
 
-- User can request AI assistance while creating a post
-- User can improve existing post drafts
-- User can shorten or expand content
-- User can change writing tone
-- User can request professional rewriting
-- User can improve comments before submission
-- User can improve profile headline or bio
-- User can summarize long discussions
-- User can perform semantic search
-- User can discover related content
-- User can receive AI-assisted recommendations
-- User can receive summarized notification digests
-- Moderators can receive AI-assisted report analysis
+- Authenticated active users can improve or generate Post drafts
+- Users can improve, shorten, or expand drafts and select a supported tone
+- Users can request Hashtag suggestions for a Post draft
+- Users can improve Comments before submission
+- Users can improve Profile headline or bio drafts within destination limits
+- Content assistance returns suggestions and performs no domain mutation
+- All five content-assistance operations share 20 requests per 15 minutes per user
+- Submitted task text is sent to the configured AI provider; Nexora does not append account or session metadata
 - AI must never automatically publish content without user confirmation
 - AI must not independently delete content or suspend users
 - AI must only receive content the requester is already authorized to access
+- Thread summaries, semantic search, related content, recommendations,
+  notification digests, Ask Nexora, feed intelligence, and AI moderation remain deferred
 
 ---
 
@@ -811,6 +827,9 @@ The following entities are required for the Nexora MVP.
 ### Future AI Entities
 
 The following entities may be added when AI features are implemented.
+
+The initial content-assistance release is stateless and adds none of these
+entities.
 
 | Entity                   | Purpose                                          |
 | ------------------------ | ------------------------------------------------ |
@@ -920,7 +939,7 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 | POST   | /api/v1/posts/\:id/repost             | Private                        | Repost another post        |
 | GET    | /api/v1/posts/\:id                    | Public or Private              | Get visible single post    |
 | PATCH  | /api/v1/posts/\:id                    | Post Owner                     | Update post                |
-| DELETE | /api/v1/posts/\:id                    | Post Owner, Admin, Super Admin | Soft-delete post           |
+| DELETE | /api/v1/posts/\:id                    | Post Owner, Platform Admin/Super Admin, or scoped Community Owner/Admin/Moderator | Soft-delete post |
 
 ---
 
@@ -932,7 +951,7 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 | GET    | /api/v1/posts/\:postId/comments      | Public or Private                                      | Get visible comments   |
 | POST   | /api/v1/comments/\:commentId/replies | Private                                                | Reply to comment       |
 | PATCH  | /api/v1/comments/\:id                | Comment Owner                                          | Update comment         |
-| DELETE | /api/v1/comments/\:id                | Comment Owner, Admin, Super Admin, Community Moderator | Delete comment         |
+| DELETE | /api/v1/comments/\:id                | Comment Owner, Platform Admin/Super Admin, or scoped Community Owner/Admin/Moderator | Delete comment |
 
 ---
 
@@ -983,6 +1002,7 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 | DELETE | /api/v1/communities/\:id/leave                          | Private                              | Leave community         |
 | GET    | /api/v1/communities/\:id/members                        | Public or Community Member           | Get community members   |
 | PATCH  | /api/v1/communities/\:communityId/members/\:userId/role | Community Owner or Admin             | Update member role      |
+| PATCH  | /api/v1/communities/\:communityId/members/\:userId/status | Community Owner or Admin           | Update membership status |
 | DELETE | /api/v1/communities/\:communityId/members/\:userId      | Community Owner, Admin, or Moderator | Remove community member |
 
 ---
@@ -1024,9 +1044,9 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 | Method | Endpoint                    | Access             | Purpose              |
 | ------ | --------------------------- | ------------------ | -------------------- |
 | POST   | /api/v1/reports             | Private            | Create report        |
-| GET    | /api/v1/reports             | Admin, Super Admin | Get all reports      |
-| GET    | /api/v1/reports/\:id        | Admin, Super Admin | Get single report    |
-| PATCH  | /api/v1/reports/\:id/status | Admin, Super Admin | Update report status |
+| GET    | /api/v1/reports             | Moderator, Admin, Super Admin | Get all reports      |
+| GET    | /api/v1/reports/\:id        | Moderator, Admin, Super Admin | Get single report    |
+| PATCH  | /api/v1/reports/\:id/status | Moderator, Admin, Super Admin | Update report status |
 
 ---
 
@@ -1050,12 +1070,30 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 
 ---
 
-## 24. Hashtag API Routes
+## 24. Trending And Hashtag API Routes
 
-| Method | Endpoint                     | Access | Purpose               |
-| ------ | ---------------------------- | ------ | --------------------- |
-| GET    | /api/v1/hashtags/trending    | Public | Get trending hashtags |
-| GET    | /api/v1/hashtags/\:tag/posts | Public | Get posts by hashtag  |
+| Method | Endpoint                     | Access                | Purpose               |
+| ------ | ---------------------------- | --------------------- | --------------------- |
+| GET    | /api/v1/trending/posts       | Public, optional auth | Get trending Posts    |
+| GET    | /api/v1/hashtags/trending    | Public                | Get trending Hashtags |
+| GET    | /api/v1/hashtags/\:tag/posts | Public                | Get posts by Hashtag  |
+
+Trending Posts and Hashtags use one inclusive rolling seven-day window.
+Post candidates are guest-public and therefore have the same IDs and ranking
+for every caller. Optional authentication may change any viewer-dependent field
+in the canonical Post response, including votes, bookmarks, and visible
+original-Post content.
+
+Post ranking uses raw stored relationship counts in this order: Reactions,
+Comments, Reposts, Votes, creation time, and ID. Soft-deleted Comment and Repost
+rows intentionally continue contributing in v1, while displayed response counts
+retain their canonical visibility semantics. No score or ranking metadata is
+exposed.
+
+Trending Hashtag `postCount` is the number of qualifying seven-day public Post
+associations, not the stored Hashtag counter or an all-time count. A selected
+association whose Hashtag cannot be resolved is an internal consistency failure.
+Trending Users and Communities remain deferred.
 
 ---
 
@@ -1091,32 +1129,42 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 
 ## 26. Admin API Routes
 
-| Method | Endpoint                               | Access             | Purpose                  |
-| ------ | -------------------------------------- | ------------------ | ------------------------ |
-| GET    | /api/v1/admin/dashboard                | Admin, Super Admin | Get dashboard statistics |
-| GET    | /api/v1/admin/posts                    | Admin, Super Admin | Get all posts            |
-| DELETE | /api/v1/admin/posts/\:id               | Admin, Super Admin | Delete post              |
-| GET    | /api/v1/admin/communities              | Admin, Super Admin | Get all communities      |
-| PATCH  | /api/v1/admin/communities/\:id/suspend | Admin, Super Admin | Suspend community        |
-| GET    | /api/v1/admin/reports                  | Admin, Super Admin | Get all reports          |
-| PATCH  | /api/v1/admin/reports/\:id/resolve     | Admin, Super Admin | Resolve report           |
+| Method | Endpoint                               | Access             | Purpose                                  |
+| ------ | -------------------------------------- | ------------------ | ---------------------------------------- |
+| GET    | /api/v1/admin/dashboard                | Admin, Super Admin | Get operational dashboard statistics     |
+| GET    | /api/v1/admin/posts                    | Admin, Super Admin | Get the Post moderation inventory        |
+| GET    | /api/v1/admin/communities              | Admin, Super Admin | Get the Community moderation inventory   |
+| PATCH  | /api/v1/admin/communities/\:id/status  | Admin, Super Admin | Set Community ACTIVE/SUSPENDED status    |
+
+The Admin namespace contains Admin-specific aggregates, inventories, and Community suspension. Canonical domain mutations remain with their owning feature APIs:
+
+- User administration uses `/api/v1/users`.
+- Report moderation uses `/api/v1/reports`.
+- Post moderation deletion uses `DELETE /api/v1/posts/:id`.
+- Community deletion uses `DELETE /api/v1/communities/:id`.
 
 ---
 
 ## 27. File Upload API Routes
 
-| Method | Endpoint                 | Access  | Purpose               |
-| ------ | ------------------------ | ------- | --------------------- |
-| POST   | /api/v1/uploads/single   | Private | Upload single file    |
-| POST   | /api/v1/uploads/multiple | Private | Upload multiple files |
+| Method | Endpoint                       | Access  | Multipart Field | Purpose                |
+| ------ | ------------------------------ | ------- | --------------- | ---------------------- |
+| POST   | /api/v1/posts                  | Private | `media`         | Create Post with media |
+| PATCH  | /api/v1/profiles/me/avatar     | Private | `file`          | Replace avatar         |
+| PATCH  | /api/v1/profiles/me/cover      | Private | `file`          | Replace cover image    |
 
-Domain-specific upload flows may also be handled directly by Post and Profile modules.
+Upload is route-free infrastructure. There is no standalone `/api/v1/uploads`
+resource in the MVP. Generic temporary assets, signed direct uploads, and video
+upload remain deferred.
 
 ---
 
-## 28. Future AI API Routes
+## 28. AI API Routes
 
-These routes are planned for later versions and are not required for the initial MVP.
+AI Content Assistance is implemented as authenticated, suggestion-only API.
+Every success uses the standard Nexora response envelope and returns `200 OK`.
+There is no AI persistence, database retrieval, autonomous action, or target
+mutation in this release.
 
 ### 28.1 AI Content Assistance
 
@@ -1128,7 +1176,13 @@ These routes are planned for later versions and are not required for the initial
 | POST   | /api/v1/ai/comments/improve     | Private | Improve comment               |
 | POST   | /api/v1/ai/profiles/improve     | Private | Improve professional profile  |
 
-### 28.2 AI Understanding
+All five routes require an active account and share one user-keyed limit of 20
+requests per 15 minutes. Invalid requests and provider failures consume this
+budget. Post and Comment suggestions respect their canonical content limits;
+Profile suggestions respect the selected headline or bio limit. User-submitted
+task text is transmitted to the configured AI provider.
+
+### 28.2 Deferred AI Understanding
 
 | Method | Endpoint                                    | Access             | Purpose                   |
 | ------ | ------------------------------------------- | ------------------ | ------------------------- |
@@ -1136,7 +1190,7 @@ These routes are planned for later versions and are not required for the initial
 | POST   | /api/v1/ai/communities/\:communityId/summary | Viewer-aware     | Summarize community       |
 | POST   | /api/v1/ai/notifications/digest             | Private            | Generate activity digest  |
 
-### 28.3 AI Discovery
+### 28.3 Deferred AI Discovery
 
 | Method | Endpoint                                 | Access       | Purpose                      |
 | ------ | ---------------------------------------- | ------------ | ---------------------------- |
@@ -1145,18 +1199,18 @@ These routes are planned for later versions and are not required for the initial
 | GET    | /api/v1/ai/people/recommended           | Private      | Recommend professionals      |
 | GET    | /api/v1/ai/communities/recommended      | Private      | Recommend communities        |
 
-### 28.4 Ask Nexora
+### 28.4 Deferred Ask Nexora
 
 | Method | Endpoint          | Access  | Purpose                            |
 | ------ | ----------------- | ------- | ---------------------------------- |
 | POST   | /api/v1/ai/ask    | Private | Ask questions about Nexora content |
 
-### 28.5 AI Moderation
+### 28.5 Deferred AI Moderation
 
 | Method | Endpoint                                     | Access             | Purpose                        |
 | ------ | -------------------------------------------- | ------------------ | ------------------------------ |
-| POST   | /api/v1/ai/moderation/analyze               | Admin, Super Admin | Analyze reported content       |
-| GET    | /api/v1/ai/moderation/reports/\:reportId    | Admin, Super Admin | View AI moderation assessment  |
+| POST   | /api/v1/ai/moderation/analyze               | Moderator, Admin, Super Admin | Analyze reported content      |
+| GET    | /api/v1/ai/moderation/reports/\:reportId    | Moderator, Admin, Super Admin | View AI moderation assessment |
 
 ---
 

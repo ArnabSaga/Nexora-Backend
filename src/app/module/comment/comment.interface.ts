@@ -1,8 +1,15 @@
 import { TMeta } from "../../shared/response/response.types";
 import type { VoteType } from "../../../generated/prisma/client";
+import type { TMentionResponse } from "../mention";
 
-export type TCommentPayload = {
+export type TCreateCommentPayload = {
   content: string;
+  mentionedUserIds?: string[];
+};
+
+export type TUpdateCommentPayload = {
+  content?: string;
+  mentionedUserIds?: string[];
 };
 
 export type TCommentListQuery = {
@@ -26,6 +33,7 @@ export type TCommentReplyResponse = {
   createdAt: Date;
   updatedAt: Date;
   author: TCommentAuthor;
+  mentions: TMentionResponse[];
   counts: {
     reactions: number;
     votes: number;
@@ -44,6 +52,7 @@ export type TCommentResponse = {
   createdAt: Date;
   updatedAt: Date;
   author: TCommentAuthor;
+  mentions: TMentionResponse[];
   counts: {
     replies: number;
     reactions: number;

@@ -17,11 +17,20 @@ export const getCanonicalNotificationMessage = (
     return "reacted to your content";
   }
 
+  if (type === NotificationType.MENTION) {
+    if (targetType === NotificationTargetType.POST) {
+      return "mentioned you in a post";
+    }
+    if (targetType === NotificationTargetType.COMMENT) {
+      return "mentioned you in a comment";
+    }
+    return "mentioned you";
+  }
+
   const messages = {
     [NotificationType.FOLLOW]: "started following you",
     [NotificationType.COMMENT]: "commented on your post",
     [NotificationType.REPLY]: "replied to your comment",
-    [NotificationType.MENTION]: "mentioned you in a post",
     [NotificationType.REPOST]: "reposted your post",
     [NotificationType.COMMUNITY_INVITE]: "invited you to a community",
     [NotificationType.COMMUNITY_ROLE_UPDATE]: "updated your community role",

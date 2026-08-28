@@ -1,20 +1,21 @@
 import status from "http-status";
-import {
-  NotificationType,
-  Prisma,
-  UserRole,
-} from "../../../generated/prisma/client";
+import { NotificationType, Prisma } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
 import { paginationHelper } from "../../shared/helpers/paginationHelper";
 import { ELIGIBLE_COMMENT_WHERE } from "../../shared/policies/comment.policy";
+import { buildAvailableParticipationWhere } from "../../shared/policies/community.policy";
 import {
-  buildAvailableParticipationWhere,
   buildCommunityModerationWhere,
-} from "../../shared/policies/community.policy";
+  hasGlobalContentModerationAuthority,
+} from "../moderation";
 import { PostVisibilityService } from "../post/services/post-visibility.service";
 import { COMMENT_DEFAULT_LIMIT, COMMENT_MAX_LIMIT } from "./comment.constant";
-import { TCommentListQuery, TCommentPayload } from "./comment.interface";
+import {
+  TCommentListQuery,
+  TCreateCommentPayload,
+  TUpdateCommentPayload,
+} from "./comment.interface";
 import { CommentSelect } from "./comment.select";
 import {
   collectCommentVoteTargetIds,
@@ -28,6 +29,11 @@ import { createPrismaVoteReadService } from "../vote/vote-read.prisma.factory";
 import { VoteReadService } from "../vote/vote-read.service";
 import type { TCommentActionResponse } from "./comment.interface";
 import { createPrismaNotificationWriter } from "../../shared/notifications/notification-writer.prisma.factory";
+import {
+  buildCommentMentionEvents,
+  MentionService,
+  type TMentionWriterFactory,
+} from "../mention";
 
 type TPrismaTransaction = Prisma.TransactionClient;
 
@@ -103,12 +109,22 @@ const ensureParticipatingPost = async (
 type TCommentMutationBindings = {
   createVoteReadService: typeof createPrismaVoteReadService;
   createNotificationWriter?: typeof createPrismaNotificationWriter;
+  mentionWriterFactory?: TMentionWriterFactory;
 };
+
+const createTransactionMentionWriter = (
+  bindings: TCommentMutationBindings,
+  client: Prisma.TransactionClient,
+) =>
+  (
+    bindings.mentionWriterFactory ??
+    ((mentionClient) => MentionService.forClient(mentionClient))
+  )(client);
 
 const createCommentMutation = async (
   postId: string,
   requester: Express.AuthenticatedUser,
-  payload: TCommentPayload,
+  payload: TCreateCommentPayload,
   bindings: TCommentMutationBindings,
 ) => {
   const post = await prisma.post.findFirst({
@@ -117,15 +133,23 @@ const createCommentMutation = async (
   });
   if (!post) throw new AppError(status.NOT_FOUND, "Post not found");
 
+  const mentionedUserIds = MentionService.normalize(
+    payload.mentionedUserIds ?? [],
+  );
+
   return prisma.$transaction(async (tx) => {
-    const comment = await tx.comment.create({
+    const createdComment = await tx.comment.create({
       data: {
         postId,
         authorId: requester.id,
         content: payload.content,
       },
-      select: CommentSelect.PUBLIC,
+      select: { id: true },
     });
+    const insertedMentions = await createTransactionMentionWriter(
+      bindings,
+      tx,
+    ).syncComment(createdComment.id, mentionedUserIds);
     await (bindings.createNotificationWriter ?? createPrismaNotificationWriter)(
       tx,
     ).writeEvents([
@@ -133,10 +157,21 @@ const createCommentMutation = async (
         type: NotificationType.COMMENT,
         senderId: requester.id,
         receiverId: post.authorId,
-        sourceKey: `COMMENT:${comment.id}`,
-        target: { type: "COMMENT", id: comment.id, postId },
+        sourceKey: `COMMENT:${createdComment.id}`,
+        target: { type: "COMMENT", id: createdComment.id, postId },
       },
+      ...buildCommentMentionEvents({
+        senderId: requester.id,
+        commentId: createdComment.id,
+        postId,
+        insertedMentions,
+      }),
     ]);
+
+    const comment = await tx.comment.findUniqueOrThrow({
+      where: { id: createdComment.id },
+      select: CommentSelect.PUBLIC,
+    });
 
     return enrichCommentActionVoteState(
       mapComment(comment),
@@ -149,7 +184,7 @@ const createCommentMutation = async (
 const createReplyMutation = async (
   commentId: string,
   requester: Express.AuthenticatedUser,
-  payload: TCommentPayload,
+  payload: TCreateCommentPayload,
   bindings: TCommentMutationBindings,
 ) => {
   const parentComment = await prisma.comment.findFirst({
@@ -179,16 +214,24 @@ const createReplyMutation = async (
     );
   }
 
+  const mentionedUserIds = MentionService.normalize(
+    payload.mentionedUserIds ?? [],
+  );
+
   return prisma.$transaction(async (tx) => {
-    const reply = await tx.comment.create({
+    const createdReply = await tx.comment.create({
       data: {
         postId: parentComment.postId,
         authorId: requester.id,
         parentCommentId: parentComment.id,
         content: payload.content,
       },
-      select: CommentSelect.REPLY,
+      select: { id: true },
     });
+    const insertedMentions = await createTransactionMentionWriter(
+      bindings,
+      tx,
+    ).syncComment(createdReply.id, mentionedUserIds);
     await (bindings.createNotificationWriter ?? createPrismaNotificationWriter)(
       tx,
     ).writeEvents([
@@ -196,14 +239,25 @@ const createReplyMutation = async (
         type: NotificationType.REPLY,
         senderId: requester.id,
         receiverId: parentComment.authorId,
-        sourceKey: `REPLY:${reply.id}`,
+        sourceKey: `REPLY:${createdReply.id}`,
         target: {
           type: "COMMENT",
-          id: reply.id,
+          id: createdReply.id,
           postId: parentComment.postId,
         },
       },
+      ...buildCommentMentionEvents({
+        senderId: requester.id,
+        commentId: createdReply.id,
+        postId: parentComment.postId,
+        insertedMentions,
+      }),
     ]);
+
+    const reply = await tx.comment.findUniqueOrThrow({
+      where: { id: createdReply.id },
+      select: CommentSelect.REPLY,
+    });
 
     return enrichCommentActionVoteState(
       mapCommentReply(reply),
@@ -273,7 +327,7 @@ const getPostComments = async (
 const updateCommentMutation = async (
   id: string,
   requester: Express.AuthenticatedUser,
-  payload: TCommentPayload,
+  payload: TUpdateCommentPayload,
   bindings: TCommentMutationBindings,
 ) => {
   const existing = await prisma.comment.findFirst({
@@ -287,6 +341,8 @@ const updateCommentMutation = async (
     },
     select: {
       id: true,
+      postId: true,
+      parentCommentId: true,
     },
   });
 
@@ -294,15 +350,47 @@ const updateCommentMutation = async (
     throw new AppError(status.NOT_FOUND, "Comment not found");
   }
 
+  const mentionedUserIds =
+    payload.mentionedUserIds === undefined
+      ? undefined
+      : MentionService.normalize(payload.mentionedUserIds);
+
   return prisma.$transaction(async (tx) => {
-    const comment = await tx.comment.update({
+    const result = await tx.comment.updateMany({
       where: {
         id: existing.id,
+        authorId: requester.id,
+        isDeleted: false,
       },
       data: {
-        content: payload.content,
+        ...(payload.content !== undefined && { content: payload.content }),
         isEdited: true,
       },
+    });
+
+    if (result.count === 0) {
+      throw new AppError(status.NOT_FOUND, "Comment not found");
+    }
+
+    if (mentionedUserIds !== undefined) {
+      const insertedMentions = await createTransactionMentionWriter(
+        bindings,
+        tx,
+      ).syncComment(existing.id, mentionedUserIds);
+      await (
+        bindings.createNotificationWriter ?? createPrismaNotificationWriter
+      )(tx).writeEvents(
+        buildCommentMentionEvents({
+          senderId: requester.id,
+          commentId: existing.id,
+          postId: existing.postId,
+          insertedMentions,
+        }),
+      );
+    }
+
+    const comment = await tx.comment.findUniqueOrThrow({
+      where: { id: existing.id },
       select: CommentSelect.PUBLIC,
     });
 
@@ -323,10 +411,7 @@ const resolveAdminDeleteAuthority = async (
   commentId: string,
   requester: Express.AuthenticatedUser,
 ) => {
-  if (
-    requester.role !== UserRole.ADMIN &&
-    requester.role !== UserRole.SUPER_ADMIN
-  ) {
+  if (!hasGlobalContentModerationAuthority(requester.role)) {
     return null;
   }
 
@@ -437,23 +522,24 @@ export const createCommentMutationService = (
   createComment: (
     postId: string,
     requester: Express.AuthenticatedUser,
-    payload: TCommentPayload,
+    payload: TCreateCommentPayload,
   ) => createCommentMutation(postId, requester, payload, bindings),
   createReply: (
     commentId: string,
     requester: Express.AuthenticatedUser,
-    payload: TCommentPayload,
+    payload: TCreateCommentPayload,
   ) => createReplyMutation(commentId, requester, payload, bindings),
   updateComment: (
     id: string,
     requester: Express.AuthenticatedUser,
-    payload: TCommentPayload,
+    payload: TUpdateCommentPayload,
   ) => updateCommentMutation(id, requester, payload, bindings),
 });
 
 const CommentMutationService = createCommentMutationService({
   createVoteReadService: createPrismaVoteReadService,
   createNotificationWriter: createPrismaNotificationWriter,
+  mentionWriterFactory: (client) => MentionService.forClient(client),
 });
 
 export const CommentService = {

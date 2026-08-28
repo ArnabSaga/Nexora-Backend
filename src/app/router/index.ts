@@ -14,6 +14,7 @@ import { PostCommentRoutes } from "../module/comment/post-comment.route";
 import { EducationRoutes } from "../module/education/education.route";
 import { ExperienceRoutes } from "../module/experience/experience.route";
 import { FollowRoutes } from "../module/follow/follow.route";
+import { HashtagRoutes } from "../module/hashtag/hashtag.route";
 import { PostRoutes } from "../module/post/post.route";
 import { NotificationRoutes } from "../module/notification/notification.route";
 import { ProfileIdentityRoutes } from "../module/profile/profile.route";
@@ -24,6 +25,10 @@ import { UserRoutes } from "../module/user/user.route";
 import { CommentVoteRoutes } from "../module/vote/comment-vote.route";
 import { PostVoteRoutes } from "../module/vote/post-vote.route";
 import { ReportRoutes } from "../module/report/report.route";
+import { SearchRoutes } from "../module/search";
+import { AdminRoutes } from "../module/admin";
+import { TrendingRoutes } from "../module/trending";
+import { AiRoutes } from "../module/ai";
 
 const router = Router();
 
@@ -44,8 +49,13 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/comments", route: CommentVoteRoutes },
   { path: "/comments", route: CommentRoutes },
   { path: "/bookmarks", route: BookmarkRoutes },
+  { path: "/hashtags", route: HashtagRoutes },
   { path: "/notifications", route: NotificationRoutes },
   { path: "/reports", route: ReportRoutes },
+  { path: "/search", route: SearchRoutes },
+  { path: "/admin", route: AdminRoutes },
+  { path: "/trending", route: TrendingRoutes },
+  { path: "/ai", route: AiRoutes },
   { path: "/communities", route: CommunityNestedRuleRoutes },
   { path: "/communities", route: CommunityMemberRoutes },
   { path: "/communities", route: CommunityRoutes },

@@ -8,6 +8,7 @@ import type {
   TCommentReplyResponse,
 } from "./comment.interface";
 import type { TVoteReadState } from "../vote/vote.interface";
+import { mapMentionResponse } from "../mention";
 
 const mapAuthor = (
   author: TCommentPublicPayload["author"] | TCommentReplyPayload["author"],
@@ -32,6 +33,7 @@ export const mapCommentReply = (
     createdAt: comment.createdAt,
     updatedAt: comment.updatedAt,
     author: mapAuthor(comment.author),
+    mentions: comment.mentions.map(mapMentionResponse),
     counts: {
       reactions: comment._count.reactions,
       votes: comment._count.votes,
@@ -43,7 +45,9 @@ export const mapCommentReply = (
   };
 };
 
-export const mapComment = (comment: TCommentPublicPayload): TCommentResponse => {
+export const mapComment = (
+  comment: TCommentPublicPayload,
+): TCommentResponse => {
   return {
     id: comment.id,
     content: comment.content,
@@ -52,6 +56,7 @@ export const mapComment = (comment: TCommentPublicPayload): TCommentResponse => 
     createdAt: comment.createdAt,
     updatedAt: comment.updatedAt,
     author: mapAuthor(comment.author),
+    mentions: comment.mentions.map(mapMentionResponse),
     counts: {
       replies: comment._count.replies,
       reactions: comment._count.reactions,
@@ -123,9 +128,7 @@ export const mergeCommentVoteStates = (
   comments: TCommentResponse[],
   voteStates: Map<string, TVoteReadState>,
 ) => {
-  return comments.map((comment) =>
-    mergeTopLevelVoteState(comment, voteStates),
-  );
+  return comments.map((comment) => mergeTopLevelVoteState(comment, voteStates));
 };
 
 export const mergeCommentActionVoteState = (

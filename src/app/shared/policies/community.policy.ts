@@ -1,5 +1,4 @@
 import {
-  CommunityMemberRole,
   CommunityMemberStatus,
   CommunityVisibility,
 } from "../../../generated/prisma/client";
@@ -73,28 +72,4 @@ export const buildAvailableParticipationWhere = (
 ): Prisma.CommunityWhereInput => ({
   ...AVAILABLE_COMMUNITY_WHERE,
   ...buildCommunityParticipationWhere(userId),
-});
-
-export const buildCommunityModerationWhere = (
-  userId: string,
-): Prisma.CommunityWhereInput => ({
-  ...AVAILABLE_COMMUNITY_WHERE,
-  OR: [
-    { ownerId: userId },
-    {
-      members: {
-        some: {
-          userId,
-          status: CommunityMemberStatus.ACTIVE,
-          role: {
-            in: [
-              CommunityMemberRole.OWNER,
-              CommunityMemberRole.ADMIN,
-              CommunityMemberRole.MODERATOR,
-            ],
-          },
-        },
-      },
-    },
-  ],
 });

@@ -6,8 +6,12 @@ import {
   COMMENT_MAX_LIMIT,
 } from "./comment.constant";
 import { scalarPositiveIntegerQuery } from "../../shared/validation/query.validation";
+import { MentionValidation } from "../mention";
 
-const cuidSchema = z.string().trim().regex(/^c[a-z0-9]+$/i, "Invalid id");
+const cuidSchema = z
+  .string()
+  .trim()
+  .regex(/^c[a-z0-9]+$/i, "Invalid id");
 
 const content = z
   .string()
@@ -37,11 +41,24 @@ const idParam = z
   })
   .strict();
 
-const body = z
+const createBody = z
   .object({
     content,
+    mentionedUserIds: MentionValidation.mentionedUserIds.optional(),
   })
   .strict();
+
+const updateBody = z
+  .object({
+    content: content.optional(),
+    mentionedUserIds: MentionValidation.mentionedUserIds.optional(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.content !== undefined || value.mentionedUserIds !== undefined,
+    { message: "At least one field is required" },
+  );
 
 const listQuery = z
   .object({
@@ -60,6 +77,7 @@ export const CommentValidation = {
   postIdParam,
   commentIdParam,
   idParam,
-  body,
+  createBody,
+  updateBody,
   listQuery,
 };

@@ -80,6 +80,8 @@ const main = () => {
     DATABASE_URL: testDatabaseUrl,
     TEST_DATABASE_URL: testDatabaseUrl,
     TEST_RUN_ID: `test-${randomUUID()}`,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY ?? "test-gemini-key",
+    GEMINI_MODEL: process.env.GEMINI_MODEL ?? "test-gemini-model",
   };
   const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 

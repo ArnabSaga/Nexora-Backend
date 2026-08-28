@@ -1,11 +1,5 @@
-import type { Request } from "express";
-import multer from "multer";
 import { v2 as cloudinary, UploadApiOptions } from "cloudinary";
-import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { envVars } from "../config/env";
-import AppError from "../shared/errors/AppError";
-import status from "http-status";
-import { FILE_UPLOAD } from "../shared/constants/upload.constant";
 
 cloudinary.config({
   cloud_name: envVars.CLOUDINARY.CLOUDINARY_CLOUD_NAME,
@@ -13,52 +7,6 @@ cloudinary.config({
   api_secret: envVars.CLOUDINARY.CLOUDINARY_API_SECRET,
   secure: true,
 });
-
-const createSafePublicId = (prefix: string, originalName: string) => {
-  const safeName = originalName
-    .replace(/\.[^/.]+$/, "")
-    .replace(/[^a-zA-Z0-9.\-_]/g, "_")
-    .slice(0, 80);
-
-  return `${prefix}-${Date.now()}-${safeName}`;
-};
-
-export const imageFileFilter: multer.Options["fileFilter"] = (
-  _req,
-  file,
-  callback,
-) => {
-  const allowedImageTypes: readonly string[] =
-    FILE_UPLOAD.ALLOWED_IMAGE_MIME_TYPES;
-
-  if (!allowedImageTypes.includes(file.mimetype)) {
-    return callback(
-      new AppError(
-        status.BAD_REQUEST,
-        "Only JPEG, PNG, or WEBP images are allowed",
-      ),
-    );
-  }
-
-  callback(null, true);
-};
-
-export const postMediaFileFilter: multer.Options["fileFilter"] = (
-  _req,
-  file,
-  callback,
-) => {
-  const allowedPostMediaTypes: readonly string[] =
-    FILE_UPLOAD.ALLOWED_POST_MEDIA_MIME_TYPES;
-
-  if (!allowedPostMediaTypes.includes(file.mimetype)) {
-    return callback(
-      new AppError(status.BAD_REQUEST, "Only image or PDF files are allowed"),
-    );
-  }
-
-  callback(null, true);
-};
 
 export const uploadBufferToCloudinary = (
   buffer: Buffer,
@@ -89,45 +37,6 @@ export const uploadBufferToCloudinary = (
     stream.end(buffer);
   });
 };
-
-export const postMediaStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: async (_req: Request, file: Express.Multer.File) => {
-    return {
-      folder: envVars.CLOUDINARY.POST_MEDIA_FOLDER,
-      resource_type: "auto",
-      public_id: createSafePublicId("post", file.originalname),
-    };
-  },
-});
-
-export const profileAvatarStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: async (req: Request, file: Express.Multer.File) => {
-    return {
-      folder: envVars.CLOUDINARY.PROFILE_AVATAR_FOLDER,
-      resource_type: "image",
-      public_id: createSafePublicId(
-        `avatar-${req.user?.id ?? "user"}`,
-        file.originalname,
-      ),
-    };
-  },
-});
-
-export const profileCoverStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: async (req: Request, file: Express.Multer.File) => {
-    return {
-      folder: envVars.CLOUDINARY.PROFILE_COVER_FOLDER,
-      resource_type: "image",
-      public_id: createSafePublicId(
-        `cover-${req.user?.id ?? "user"}`,
-        file.originalname,
-      ),
-    };
-  },
-});
 
 const CLOUDINARY_DELIVERY_HOST = "res.cloudinary.com";
 const CLOUDINARY_VERSION_SEGMENT_PATTERN = /^v\d+$/;
@@ -231,9 +140,8 @@ export const getPublicIdFromUrl = (fileUrl: string) => {
     }
 
     const finalSegment = publicIdSegments[publicIdSegments.length - 1];
-    const finalSegmentWithoutExtension = stripFinalFilenameExtension(
-      finalSegment,
-    );
+    const finalSegmentWithoutExtension =
+      stripFinalFilenameExtension(finalSegment);
     const sanitizedPublicIdSegments = [
       ...publicIdSegments.slice(0, -1),
       finalSegmentWithoutExtension,
@@ -247,35 +155,6 @@ export const getPublicIdFromUrl = (fileUrl: string) => {
   } catch {
     return null;
   }
-};
-
-export const destroyCloudinaryAssetByUrl = async (fileUrl: string) => {
-  const publicId = getPublicIdFromUrl(fileUrl);
-
-  if (!publicId) return false;
-
-  const attempts: Array<"image" | "raw" | "video"> = ["image", "raw", "video"];
-
-  for (const resourceType of attempts) {
-    try {
-      const result = await cloudinary.uploader.destroy(publicId, {
-        invalidate: true,
-        resource_type: resourceType,
-      });
-
-      if (result.result === "ok") {
-        return true;
-      }
-
-      if (result.result === "not found") {
-        continue;
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  return false;
 };
 
 export { cloudinary };

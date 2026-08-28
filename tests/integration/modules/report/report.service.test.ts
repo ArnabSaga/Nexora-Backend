@@ -32,6 +32,10 @@ const actor = (user: TUser): Express.AuthenticatedUser => ({
   role: user.role,
   status: user.status,
 });
+const platformReviewer = (user: TUser): Express.AuthenticatedUser => ({
+  ...actor(user),
+  role: UserRole.ADMIN,
+});
 
 const trackReport = (targetType: ReportTargetType, id: string) => {
   cleanup.add(`report:${targetType}:${id}`, () => {
@@ -194,7 +198,10 @@ test("Unified Report cursor traverses same timestamp and ID by target rank", asy
   const actual: ReportTargetType[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < 4; page += 1) {
-    const result = await ReportService.getReports({ limit: 1, cursor });
+    const result = await ReportService.getReports(platformReviewer(reporter), {
+      limit: 1,
+      cursor,
+    });
     actual.push(result.data[0]!.targetType);
     cursor = result.meta.nextCursor ?? undefined;
   }
@@ -230,9 +237,9 @@ test("Report status transitions audit atomically and same-state is no-write", as
   trackReport(ReportTargetType.USER, created.data.id);
   const reviewer = { ...actor(admin), role: UserRole.ADMIN };
   const reviewed = await ReportService.updateReportStatus(
+    reviewer,
     created.data.id,
     ReportStatus.REVIEWED,
-    reviewer,
   );
   assert.equal(reviewed.status, ReportStatus.REVIEWED);
   assert.equal(reviewed.reviewedBy?.id, admin.id);
@@ -241,9 +248,9 @@ test("Report status transitions audit atomically and same-state is no-write", as
     where: { id: created.data.id },
   });
   const converged = await ReportService.updateReportStatus(
+    reviewer,
     created.data.id,
     ReportStatus.REVIEWED,
-    reviewer,
   );
   const after = await prisma.userReport.findUniqueOrThrow({
     where: { id: created.data.id },
@@ -253,16 +260,16 @@ test("Report status transitions audit atomically and same-state is no-write", as
   assert.equal(after.reviewedAt?.getTime(), before.reviewedAt?.getTime());
 
   const resolved = await ReportService.updateReportStatus(
+    reviewer,
     created.data.id,
     ReportStatus.RESOLVED,
-    reviewer,
   );
   assert.equal(resolved.status, ReportStatus.RESOLVED);
   await assert.rejects(
     ReportService.updateReportStatus(
+      reviewer,
       created.data.id,
       ReportStatus.REVIEWED,
-      reviewer,
     ),
     (error: unknown) => error instanceof AppError && error.statusCode === 409,
   );
@@ -333,9 +340,9 @@ test("Terminal Report cases allow a new active case", async () => {
   });
   trackReport(ReportTargetType.USER, first.data.id);
   await ReportService.updateReportStatus(
+    reviewer,
     first.data.id,
     ReportStatus.RESOLVED,
-    reviewer,
   );
   const second = await ReportService.createReport(actor(reporter), {
     target: { type: ReportTargetType.USER, id: target.id },
@@ -346,9 +353,9 @@ test("Terminal Report cases allow a new active case", async () => {
   assert.notEqual(second.data.id, first.data.id);
 
   await ReportService.updateReportStatus(
+    reviewer,
     second.data.id,
     ReportStatus.REJECTED,
-    reviewer,
   );
   const third = await ReportService.createReport(actor(reporter), {
     target: { type: ReportTargetType.USER, id: target.id },
@@ -386,14 +393,16 @@ test("Concurrent same-status updates converge on one audit transition", async ()
   });
   trackReport(ReportTargetType.USER, created.data.id);
   const results = await Promise.all([
-    ReportService.updateReportStatus(created.data.id, ReportStatus.REVIEWED, {
-      ...actor(firstAdmin),
-      role: UserRole.ADMIN,
-    }),
-    ReportService.updateReportStatus(created.data.id, ReportStatus.REVIEWED, {
-      ...actor(secondAdmin),
-      role: UserRole.ADMIN,
-    }),
+    ReportService.updateReportStatus(
+      platformReviewer(firstAdmin),
+      created.data.id,
+      ReportStatus.REVIEWED,
+    ),
+    ReportService.updateReportStatus(
+      platformReviewer(secondAdmin),
+      created.data.id,
+      ReportStatus.REVIEWED,
+    ),
   ]);
   assert.ok(results.every((result) => result.status === ReportStatus.REVIEWED));
   const stored = await prisma.userReport.findUniqueOrThrow({
@@ -435,14 +444,16 @@ test("Concurrent different-status updates never return competing audit data", as
   });
   trackReport(ReportTargetType.USER, created.data.id);
   const results = await Promise.allSettled([
-    ReportService.updateReportStatus(created.data.id, ReportStatus.REVIEWED, {
-      ...actor(reviewAdmin),
-      role: UserRole.ADMIN,
-    }),
-    ReportService.updateReportStatus(created.data.id, ReportStatus.RESOLVED, {
-      ...actor(resolveAdmin),
-      role: UserRole.ADMIN,
-    }),
+    ReportService.updateReportStatus(
+      platformReviewer(reviewAdmin),
+      created.data.id,
+      ReportStatus.REVIEWED,
+    ),
+    ReportService.updateReportStatus(
+      platformReviewer(resolveAdmin),
+      created.data.id,
+      ReportStatus.RESOLVED,
+    ),
   ]);
   const reviewResult = results[0]!;
   const resolveResult = results[1]!;
@@ -494,14 +505,14 @@ test("Sequential status transitions return their own reviewer audits", async () 
   });
   trackReport(ReportTargetType.USER, created.data.id);
   const reviewed = await ReportService.updateReportStatus(
+    platformReviewer(reviewAdmin),
     created.data.id,
     ReportStatus.REVIEWED,
-    { ...actor(reviewAdmin), role: UserRole.ADMIN },
   );
   const resolved = await ReportService.updateReportStatus(
+    platformReviewer(resolveAdmin),
     created.data.id,
     ReportStatus.RESOLVED,
-    { ...actor(resolveAdmin), role: UserRole.ADMIN },
   );
   assert.equal(reviewed.status, ReportStatus.REVIEWED);
   assert.equal(reviewed.reviewedBy?.id, reviewAdmin.id);
@@ -645,7 +656,9 @@ test("Admin moderation summaries retain unavailable target state", async () => {
     }),
   ]);
   const details = await Promise.all(
-    reports.map((report) => ReportService.getReportById(report.data.id)),
+    reports.map((report) =>
+      ReportService.getReportById(platformReviewer(reporter), report.data.id),
+    ),
   );
   const userTarget = details.find(
     (report) => report.target.type === ReportTargetType.USER,
@@ -706,10 +719,12 @@ test("Report cursor continues after its physical row is deleted", async () => {
   const expected = [...controlled].sort(
     (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
   );
-  const first = await ReportService.getReports({ limit: 1 });
+  const first = await ReportService.getReports(platformReviewer(reporter), {
+    limit: 1,
+  });
   assert.equal(first.data[0]?.id, expected[0]?.id);
   await prisma.userReport.delete({ where: { id: expected[0]!.id } });
-  const second = await ReportService.getReports({
+  const second = await ReportService.getReports(platformReviewer(reporter), {
     limit: 1,
     cursor: first.meta.nextCursor ?? undefined,
   });
@@ -752,17 +767,18 @@ test("Cross-table Report identity conflicts reject reads and writes", async () =
     prisma.postReport.findUniqueOrThrow({ where: { id: sharedId } }),
   ]);
   await assert.rejects(
-    ReportService.getReportById(sharedId),
+    ReportService.getReportById(platformReviewer(reporter), sharedId),
     (error: unknown) =>
       error instanceof AppError &&
       error.statusCode === 409 &&
       error.message === "Report identity conflict",
   );
   await assert.rejects(
-    ReportService.updateReportStatus(sharedId, ReportStatus.REVIEWED, {
-      ...actor(reporter),
-      role: UserRole.ADMIN,
-    }),
+    ReportService.updateReportStatus(
+      platformReviewer(reporter),
+      sharedId,
+      ReportStatus.REVIEWED,
+    ),
     (error: unknown) =>
       error instanceof AppError &&
       error.statusCode === 409 &&

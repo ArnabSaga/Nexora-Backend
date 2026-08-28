@@ -2,10 +2,8 @@ import status from "http-status";
 import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 import AppError from "../../shared/errors/AppError";
-import {
-  buildCommunityModerationWhere,
-  buildReadableCommunityWhere,
-} from "../../shared/policies/community.policy";
+import { buildReadableCommunityWhere } from "../../shared/policies/community.policy";
+import { buildCommunityModerationWhere } from "../moderation";
 import {
   COMMUNITY_RULE_MAX_COUNT,
   COMMUNITY_RULE_TRANSACTION_MAX_ATTEMPTS,

@@ -10,6 +10,7 @@ type TCreateTestPostInput = {
   repostId?: string;
   communityId?: string;
   createdAt?: Date;
+  content?: string;
 };
 
 export const createTestPost = async ({
@@ -20,11 +21,12 @@ export const createTestPost = async ({
   repostId,
   communityId,
   createdAt,
+  content,
 }: TCreateTestPostInput) => {
   const post = await prisma.post.create({
     data: {
       authorId,
-      content: `${runId} post`,
+      content: content ?? `${runId} post`,
       visibility,
       repostId,
       communityId,

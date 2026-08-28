@@ -38,6 +38,10 @@ type EnvVars = {
     PROFILE_AVATAR_FOLDER: string;
     PROFILE_COVER_FOLDER: string;
   };
+  AI: {
+    GEMINI_API_KEY: string;
+    GEMINI_MODEL: string;
+  };
 };
 
 export const getOptionalEnv = (key: string): string | undefined => {
@@ -211,6 +215,10 @@ const envVariables = (): EnvVars => {
       PROFILE_COVER_FOLDER:
         getOptionalEnv("PROFILE_COVER_FOLDER") ??
         CLOUDINARY_FOLDER.PROFILE_COVER,
+    },
+    AI: {
+      GEMINI_API_KEY: getRequiredEnv("GEMINI_API_KEY"),
+      GEMINI_MODEL: getRequiredEnv("GEMINI_MODEL"),
     },
   };
 };

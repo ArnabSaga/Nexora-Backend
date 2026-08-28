@@ -721,15 +721,17 @@ Admins need a centralized panel to control users, content, communities, reports,
 
 ---
 
-## 7.19 Future AI Intelligence System
+## 7.19 AI Intelligence System
 
 ### Description
 
-Nexora will introduce a dedicated AI Intelligence System in future versions.
+Nexora introduces AI through a staged, provider-neutral Intelligence System.
 
 The AI system will help users create better content, understand discussions, discover relevant information, receive personalized recommendations, and interact with platform knowledge.
 
-AI will operate as an enhancement layer and must never replace authentication, authorization, visibility, privacy, database integrity, or moderation authority.
+The first release provides stateless content suggestions only. AI operates as
+an enhancement layer and never replaces authentication, authorization,
+visibility, privacy, database integrity, or moderation authority.
 
 ### AI Capability Areas
 
@@ -750,22 +752,19 @@ AI will operate as an enhancement layer and must never replace authentication, a
 
 ### Functional Requirements
 
-- User can request AI assistance while creating a post
-- User can improve existing post drafts
-- User can shorten or expand content
-- User can change writing tone
-- User can request professional rewriting
-- User can improve comments before submission
-- User can improve profile headline or bio
-- User can summarize long discussions
-- User can perform semantic search
-- User can discover related content
-- User can receive AI-assisted recommendations
-- User can receive summarized notification digests
-- Moderators can receive AI-assisted report analysis
+- Authenticated active users can improve or generate Post drafts
+- Users can improve, shorten, or expand drafts and select a supported tone
+- Users can request Hashtag suggestions for a Post draft
+- Users can improve Comments before submission
+- Users can improve Profile headline or bio drafts within destination limits
+- Content assistance returns suggestions and performs no domain mutation
+- All five content-assistance operations share 20 requests per 15 minutes per user
+- Submitted task text is sent to the configured AI provider; Nexora does not append account or session metadata
 - AI must never automatically publish content without user confirmation
 - AI must not independently delete content or suspend users
 - AI must only receive content the requester is already authorized to access
+- Thread summaries, semantic search, related content, recommendations,
+  notification digests, Ask Nexora, feed intelligence, and AI moderation remain deferred
 
 ---
 
@@ -828,6 +827,9 @@ The following entities are required for the Nexora MVP.
 ### Future AI Entities
 
 The following entities may be added when AI features are implemented.
+
+The initial content-assistance release is stateless and adds none of these
+entities.
 
 | Entity                   | Purpose                                          |
 | ------------------------ | ------------------------------------------------ |
@@ -1157,9 +1159,12 @@ upload remain deferred.
 
 ---
 
-## 28. Future AI API Routes
+## 28. AI API Routes
 
-These routes are planned for later versions and are not required for the initial MVP.
+AI Content Assistance is implemented as authenticated, suggestion-only API.
+Every success uses the standard Nexora response envelope and returns `200 OK`.
+There is no AI persistence, database retrieval, autonomous action, or target
+mutation in this release.
 
 ### 28.1 AI Content Assistance
 
@@ -1171,7 +1176,13 @@ These routes are planned for later versions and are not required for the initial
 | POST   | /api/v1/ai/comments/improve     | Private | Improve comment               |
 | POST   | /api/v1/ai/profiles/improve     | Private | Improve professional profile  |
 
-### 28.2 AI Understanding
+All five routes require an active account and share one user-keyed limit of 20
+requests per 15 minutes. Invalid requests and provider failures consume this
+budget. Post and Comment suggestions respect their canonical content limits;
+Profile suggestions respect the selected headline or bio limit. User-submitted
+task text is transmitted to the configured AI provider.
+
+### 28.2 Deferred AI Understanding
 
 | Method | Endpoint                                    | Access             | Purpose                   |
 | ------ | ------------------------------------------- | ------------------ | ------------------------- |
@@ -1179,7 +1190,7 @@ These routes are planned for later versions and are not required for the initial
 | POST   | /api/v1/ai/communities/\:communityId/summary | Viewer-aware     | Summarize community       |
 | POST   | /api/v1/ai/notifications/digest             | Private            | Generate activity digest  |
 
-### 28.3 AI Discovery
+### 28.3 Deferred AI Discovery
 
 | Method | Endpoint                                 | Access       | Purpose                      |
 | ------ | ---------------------------------------- | ------------ | ---------------------------- |
@@ -1188,13 +1199,13 @@ These routes are planned for later versions and are not required for the initial
 | GET    | /api/v1/ai/people/recommended           | Private      | Recommend professionals      |
 | GET    | /api/v1/ai/communities/recommended      | Private      | Recommend communities        |
 
-### 28.4 Ask Nexora
+### 28.4 Deferred Ask Nexora
 
 | Method | Endpoint          | Access  | Purpose                            |
 | ------ | ----------------- | ------- | ---------------------------------- |
 | POST   | /api/v1/ai/ask    | Private | Ask questions about Nexora content |
 
-### 28.5 AI Moderation
+### 28.5 Deferred AI Moderation
 
 | Method | Endpoint                                     | Access             | Purpose                        |
 | ------ | -------------------------------------------- | ------------------ | ------------------------------ |

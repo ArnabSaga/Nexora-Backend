@@ -175,3 +175,22 @@ export const reportCreateRateLimit = createRateLimit({
   keyGenerator: (req) =>
     req.user?.id ? `user:${req.user.id}` : getClientKey(req),
 });
+
+export const createAiRateLimit = (): RequestHandler =>
+  createRateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    message: "Too many AI requests. Please try again later.",
+    keyGenerator: (req) => {
+      if (!req.user?.id) {
+        throw new AppError(
+          status.INTERNAL_SERVER_ERROR,
+          "AI rate limit requires an authenticated user",
+        );
+      }
+
+      return `user:${req.user.id}`;
+    },
+  });
+
+export const aiRateLimit = createAiRateLimit();

@@ -28,6 +28,7 @@ import { ReportRoutes } from "../module/report/report.route";
 import { SearchRoutes } from "../module/search";
 import { AdminRoutes } from "../module/admin";
 import { TrendingRoutes } from "../module/trending";
+import { AiRoutes } from "../module/ai";
 
 const router = Router();
 
@@ -54,6 +55,7 @@ const moduleRoutes: { path: string; route: Router }[] = [
   { path: "/search", route: SearchRoutes },
   { path: "/admin", route: AdminRoutes },
   { path: "/trending", route: TrendingRoutes },
+  { path: "/ai", route: AiRoutes },
   { path: "/communities", route: CommunityNestedRuleRoutes },
   { path: "/communities", route: CommunityMemberRoutes },
   { path: "/communities", route: CommunityRoutes },

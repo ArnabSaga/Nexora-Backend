@@ -1,4 +1,7 @@
 import type { TPostResponse } from "../post/post.interface";
+import type { TTrendingHashtag } from "../trending";
+
+export type { TTrendingHashtag } from "../trending";
 
 export type THashtagTrendingQuery = { limit?: number };
 export type THashtagPostQuery = { cursor?: string; limit?: number };
@@ -7,12 +10,6 @@ export type THashtagCursorPayload = {
   version: 1;
   createdAt: string;
   id: string;
-};
-
-export type TTrendingHashtag = {
-  id: string;
-  name: string;
-  postCount: number;
 };
 
 export type THashtagPostListResult = {

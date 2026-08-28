@@ -1068,12 +1068,30 @@ High-volume timeline APIs such as feeds may use cursor-based pagination.
 
 ---
 
-## 24. Hashtag API Routes
+## 24. Trending And Hashtag API Routes
 
-| Method | Endpoint                     | Access | Purpose               |
-| ------ | ---------------------------- | ------ | --------------------- |
-| GET    | /api/v1/hashtags/trending    | Public | Get trending hashtags |
-| GET    | /api/v1/hashtags/\:tag/posts | Public | Get posts by hashtag  |
+| Method | Endpoint                     | Access                | Purpose               |
+| ------ | ---------------------------- | --------------------- | --------------------- |
+| GET    | /api/v1/trending/posts       | Public, optional auth | Get trending Posts    |
+| GET    | /api/v1/hashtags/trending    | Public                | Get trending Hashtags |
+| GET    | /api/v1/hashtags/\:tag/posts | Public                | Get posts by Hashtag  |
+
+Trending Posts and Hashtags use one inclusive rolling seven-day window.
+Post candidates are guest-public and therefore have the same IDs and ranking
+for every caller. Optional authentication may change any viewer-dependent field
+in the canonical Post response, including votes, bookmarks, and visible
+original-Post content.
+
+Post ranking uses raw stored relationship counts in this order: Reactions,
+Comments, Reposts, Votes, creation time, and ID. Soft-deleted Comment and Repost
+rows intentionally continue contributing in v1, while displayed response counts
+retain their canonical visibility semantics. No score or ranking metadata is
+exposed.
+
+Trending Hashtag `postCount` is the number of qualifying seven-day public Post
+associations, not the stored Hashtag counter or an all-time count. A selected
+association whose Hashtag cannot be resolved is an internal consistency failure.
+Trending Users and Communities remain deferred.
 
 ---
 

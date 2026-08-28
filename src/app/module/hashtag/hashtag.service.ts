@@ -5,6 +5,7 @@ import { parseHashtagPathTag } from "../../shared/hashtags/hashtag.util";
 import { PostSelect } from "../post/constants/post.select";
 import { PostResponseService } from "../post/services/post-response.service";
 import { PostVisibilityService } from "../post/services/post-visibility.service";
+import { TrendingHashtagService } from "../trending";
 import { HASHTAG_DEFAULT_LIMIT, HASHTAG_MAX_LIMIT } from "./hashtag.constant";
 import { decodeHashtagCursor, encodeHashtagCursor } from "./hashtag.cursor";
 import type {
@@ -43,32 +44,7 @@ const validateQueryKeys = (query: object, allowed: string[]) => {
 
 const getTrending = async (
   query: THashtagTrendingQuery,
-): Promise<TTrendingHashtag[]> => {
-  validateQueryKeys(query, ["limit"]);
-  const limit = validateLimit(query.limit);
-  const ranking = await prisma.postHashtag.groupBy({
-    by: ["hashtagId"],
-    where: {
-      post: { is: PostVisibilityService.buildPublicOnlyWhere() },
-    },
-    _count: { hashtagId: true },
-    orderBy: [{ _count: { hashtagId: "desc" } }, { hashtagId: "asc" }],
-    take: limit,
-  });
-
-  if (!ranking.length) return [];
-
-  const hashtags = await prisma.hashtag.findMany({
-    where: { id: { in: ranking.map((item) => item.hashtagId) } },
-    select: { id: true, name: true },
-  });
-  const byId = new Map(hashtags.map((item) => [item.id, item]));
-
-  return ranking.flatMap((item) => {
-    const hashtag = byId.get(item.hashtagId);
-    return hashtag ? [{ ...hashtag, postCount: item._count.hashtagId }] : [];
-  });
-};
+): Promise<TTrendingHashtag[]> => TrendingHashtagService.getTrending(query);
 
 const getPostsByHashtag = async (
   tag: unknown,

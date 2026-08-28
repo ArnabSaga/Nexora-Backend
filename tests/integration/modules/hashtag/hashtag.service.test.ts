@@ -23,6 +23,20 @@ if (!testRunId)
 const runId = `${testRunId}-hashtag-service`;
 const cleanup = createTestCleanup();
 const trackedHashtagIds = new Set<string>();
+const recentPublicPostWhere = () => {
+  const now = new Date();
+  return {
+    AND: [
+      PostVisibilityService.buildPublicOnlyWhere(),
+      {
+        createdAt: {
+          gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+          lte: now,
+        },
+      },
+    ],
+  };
+};
 const tag = (label: string) =>
   `h${label}${runId}`
     .replace(/[^A-Za-z0-9_]/g, "")
@@ -313,10 +327,17 @@ test("Hashtag trending uses public visibility rather than stored counters", asyn
     authorId: author.id,
     visibility: PostVisibility.PRIVATE,
   });
+  const old = await createTestPost({
+    cleanup,
+    runId: `${runId}-old`,
+    authorId: author.id,
+    createdAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+  });
   const publicTrend = tag("publictrend");
   const hiddenOnly = tag("hiddenonly");
   await sync(visible.id, `#${publicTrend}`);
   await sync(hidden.id, `#${publicTrend} #${hiddenOnly}`);
+  await sync(old.id, `#${publicTrend}`);
   await prisma.hashtag.updateMany({
     where: { name: hiddenOnly },
     data: { postCount: 999 },
@@ -336,7 +357,7 @@ test("Hashtag trending uses public visibility rather than stored counters", asyn
 test("Hashtag discovery applies the complete guest-public visibility matrix", async () => {
   const baseline = await prisma.postHashtag.groupBy({
     by: ["hashtagId"],
-    where: { post: { is: PostVisibilityService.buildPublicOnlyWhere() } },
+    where: { post: { is: recentPublicPostWhere() } },
     _count: { hashtagId: true },
     orderBy: { _count: { hashtagId: "desc" } },
     take: 1,
@@ -506,7 +527,7 @@ test("Hashtag discovery applies the complete guest-public visibility matrix", as
 test("Hashtag trending uses database count and hashtag ID ordering", async () => {
   const baseline = await prisma.postHashtag.groupBy({
     by: ["hashtagId"],
-    where: { post: { is: PostVisibilityService.buildPublicOnlyWhere() } },
+    where: { post: { is: recentPublicPostWhere() } },
     _count: { hashtagId: true },
     orderBy: { _count: { hashtagId: "desc" } },
     take: 1,

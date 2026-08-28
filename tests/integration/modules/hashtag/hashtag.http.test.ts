@@ -34,9 +34,24 @@ const request = async (path: string, authenticated = false) => {
 };
 
 before(async () => {
+  const now = new Date();
   const baseline = await prisma.postHashtag.groupBy({
     by: ["hashtagId"],
-    where: { post: { is: PostVisibilityService.buildPublicOnlyWhere() } },
+    where: {
+      post: {
+        is: {
+          AND: [
+            PostVisibilityService.buildPublicOnlyWhere(),
+            {
+              createdAt: {
+                gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+                lte: now,
+              },
+            },
+          ],
+        },
+      },
+    },
     _count: { hashtagId: true },
     orderBy: { _count: { hashtagId: "desc" } },
     take: 1,
@@ -79,18 +94,9 @@ before(async () => {
       `#${hashtagName}`,
     ),
   );
-  const newestVisible = await prisma.post.findFirst({
-    where: PostVisibilityService.buildPublicOnlyWhere(),
-    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-    select: { createdAt: true },
-  });
   await prisma.post.update({
     where: { id: post.id },
-    data: {
-      createdAt: new Date(
-        (newestVisible?.createdAt.getTime() ?? Date.now()) + 1_000,
-      ),
-    },
+    data: { createdAt: new Date(Date.now() - 1_000) },
   });
   const hashtag = await prisma.hashtag.findUniqueOrThrow({
     where: { name: hashtagName },
